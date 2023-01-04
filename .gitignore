@@ -40,3 +40,9 @@ inst/doc
 
 # db folder
 db/
+
+# IAMC reporting folder
+iamc-reporting/
+
+# csv files
+*.csv
