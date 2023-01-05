@@ -282,7 +282,7 @@ gas.pipelines.plot<-ggplot(gas.trade.pipeline %>% filter(region %in% selected_re
         axis.title.y = element_text(size = 12),
         axis.text.x = element_text(size = 7, angle = 90, vjust = .5),
         axis.text.y = element_text(size = 9)) + 
-  #scale_color_manual(values = my_pal_scen) + 
+  scale_color_manual(values = my_pal_scen) + 
   ggtitle("Gas pipeline imports by pipeline, region, and period (EJ)")
 
 ggsave("figures/gas_ImpPipe_byPipe.tiff", gas.pipelines.plot, "tiff", dpi = 200)
