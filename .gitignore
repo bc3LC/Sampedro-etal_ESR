@@ -44,5 +44,8 @@ db/
 # IAMC reporting folder
 iamc-reporting/
 
+# Old reporting folder
+old/
+
 # csv files
 *.csv

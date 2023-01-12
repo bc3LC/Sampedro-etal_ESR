@@ -8,24 +8,20 @@ library(RColorBrewer)
 library(tibble)
 library(gcamdata)
 library(rmap)
+library(ggsci)
 # --------
 # Extract queries from db using rgcam
 # --------
-
-#conn <- localDBConn("./db", 'database_basexdb_iamCompact',migabble = FALSE)
-#prj <- addScenario(conn,"results_gas.dat",c("Baseline_NewGas", "Baseline_NewGas_RUSlimit"),"queries/queries_gas.xml")
-
-
-#prj<-rgcam::addMIBatchCSV(fn = "results_withFE_local.csv",
-#                     proj = "results_gas_withFE.dat",
-#                   clobber = FALSE)
+#prj<-rgcam::addMIBatchCSV(fn = "results_gas_local.csv",
+#                     proj = "results_gas_local.dat",
+#                  clobber = FALSE)
 #
-#saveProject(prj,"results_gas_withFE.dat")
+#saveProject(prj,"results_gas_local.dat")
 
 
 # --------
 # Load project file
-prj <- loadProject("results_gas_withFE.dat")
+prj <- loadProject("results_gas_local.dat")
 listScenarios(prj)
 QUERY_LIST <- listQueries(prj)
 
@@ -60,7 +56,7 @@ regions_pr<-as_tibble(read.csv("data/iso_GCAM_regID.csv", skip = 6)) %>%
 #my_pal<-c("gray20","gray50","#ad440c","#ef8e27","#d01c2a","darkorchid3","#507fab","deepskyblue1","#11d081", "#00931d")
 my_pal_en<-c("#00931d","gray20","thistle2","gold2","deepskyblue1","peachpuff2","#d01c2a","#11d081")
 my_pal_en_noh<-c("#00931d","gray20","thistle2","gold2","deepskyblue1","#d01c2a","#11d081")
-my_pal_scen<-c("#999999","#E69F00", "#56B4E9", "#009E73", "#CC79A7")
+my_pal_scen<-c("#999999","#E69F00", "#56B4E9", "#009E73", "#CC79A7","darkgoldenrod1")
 #my_pal_ssp<-c("forestgreen","dodgerblue3","darkgoldenrod3","firebrick3","black")
 
 
@@ -76,7 +72,8 @@ gdppc<-getQuery(prj,"GDP per capita MER by region") %>%
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Dom", "NDC_NoRus_Dom", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario))
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario),
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Eff", "NDC_NoRus_Eff", scenario))
 
 #----------------------------------------
 # Population
@@ -85,7 +82,8 @@ pop<- getQuery(prj,"Population by region") %>%
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Dom", "NDC_NoRus_Dom", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario))
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario),
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Eff", "NDC_NoRus_Eff", scenario))
 
 #----------------------------------------
 # Primary Energy
@@ -94,7 +92,8 @@ pr.energy<- getQuery(prj,"primary energy consumption by region (avg fossil effic
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Dom", "NDC_NoRus_Dom", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario))
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario),
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Eff", "NDC_NoRus_Eff", scenario))
 
 #----------------------------------------
 # Gas
@@ -103,7 +102,8 @@ gas.dom.prod<-getQuery(prj,"primary energy consumption by region (avg fossil eff
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Dom", "NDC_NoRus_Dom", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario)) %>%
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario),
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Eff", "NDC_NoRus_Eff", scenario)) %>%
   filter(grepl("natural gas", fuel)) %>%
   mutate(sector = "domestic natural gas") %>%
   select(-fuel) %>%
@@ -120,7 +120,8 @@ gas.trade.pipeline<- getQuery(prj,"primary energy consumption by region (avg fos
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Dom", "NDC_NoRus_Dom", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario)) %>%
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario),
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Eff", "NDC_NoRus_Eff", scenario)) %>%
   filter(grepl("pipeline", fuel)) %>%
   mutate(sector = "imported pipeline gas",
          fuel = gsub("traded ", "", fuel),
@@ -143,7 +144,8 @@ gas.trade.lng<- getQuery(prj,"primary energy consumption by region (avg fossil e
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Dom", "NDC_NoRus_Dom", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario)) %>%
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario),
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Eff", "NDC_NoRus_Eff", scenario)) %>%
   filter(grepl("LNG", fuel)) %>%
   rename(sector = fuel) %>%
   mutate(sector = "imported LNG") %>%
@@ -163,7 +165,8 @@ tfe.sector<- getQuery(prj,"total final energy by aggregate sector") %>%
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Dom", "NDC_NoRus_Dom", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario)) %>%
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario),
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Eff", "NDC_NoRus_Eff", scenario)) %>%
   left_join(regions %>% distinct(region, ab), by = "region") %>%
   mutate(region = if_else(ab != "", ab, region)) %>%
   select(-ab) %>%
@@ -178,7 +181,8 @@ gas.price<-getQuery(prj,"final energy prices") %>%
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Dom", "NDC_NoRus_Dom", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario)) %>%
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario),
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Eff", "NDC_NoRus_Eff", scenario)) %>%
   filter(fuel == "wholesale gas") %>%
   rename(sector = fuel) %>%
   left_join(regions_pr %>% distinct(region, ab), by = "region") %>%
@@ -192,7 +196,8 @@ lng.price<-getQuery(prj,"prices of all markets") %>%
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Dom", "NDC_NoRus_Dom", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario)) %>%
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario),
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Eff", "NDC_NoRus_Eff", scenario)) %>%
   filter(market == "USAtraded LNG") %>%
   rename(sector = market) %>%
   mutate(sector = "LNG") %>%
@@ -210,7 +215,8 @@ co2<-getQuery(prj,"CO2 emissions by sector (no bio)") %>%
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Dom", "NDC_NoRus_Dom", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario)) %>%
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario),
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Eff", "NDC_NoRus_Eff", scenario)) %>%
   group_by(scenario, region, year, Units) %>%
   summarise(value = sum(value)) %>%
   ungroup() %>%
@@ -228,7 +234,8 @@ tfe.fuel<-getQuery(prj,"final energy consumption by fuel") %>%
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Dom", "NDC_NoRus_Dom", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario)) %>%
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario),
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Eff", "NDC_NoRus_Eff", scenario)) %>%
   rename(sector = input) %>%
   left_join(regions %>% distinct(region, ab), by = "region") %>%
   mutate(region = if_else(ab != "", ab, region)) %>%
@@ -260,8 +267,10 @@ gas.plot<-ggplot(gas.all %>% filter(region %in% selected_regions,
         axis.title.y = element_text(size = 12),
         axis.text.x = element_text(size = 7, angle = 90, vjust = .5),
         axis.text.y = element_text(size = 9)) + 
-  scale_color_manual(values = my_pal_scen) + 
+  scale_color_tron() +
   ggtitle("Gas production, and pipeline (agg) and LNG imports by region and period (EJ)")
+
+gas.plot
 
 ggsave("figures/gas_prod_ImpPipe_ImpLNG.tiff", gas.plot, "tiff", dpi = 200)
 
@@ -282,7 +291,7 @@ gas.pipelines.plot<-ggplot(gas.trade.pipeline %>% filter(region %in% selected_re
         axis.title.y = element_text(size = 12),
         axis.text.x = element_text(size = 7, angle = 90, vjust = .5),
         axis.text.y = element_text(size = 9)) + 
-  scale_color_manual(values = my_pal_scen) + 
+  scale_color_tron() +
   ggtitle("Gas pipeline imports by pipeline, region, and period (EJ)")
 
 ggsave("figures/gas_ImpPipe_byPipe.tiff", gas.pipelines.plot, "tiff", dpi = 200)
@@ -306,7 +315,7 @@ price.pipeline<-ggplot(gas.price %>% filter(region %in% selected_regions,
         axis.title.y = element_text(size = 12),
         axis.text.x = element_text(size = 10, angle = 90, hjust = 0.5),
         axis.text.y = element_text(size = 10)) + 
-  scale_color_manual(values = my_pal_scen) + 
+  scale_color_tron() +
   ggtitle("Wholesale gas prices by region and period (2015$/GJ)")
 
 ggsave("figures/GasPrice_pipeline.tiff", price.pipeline, "tiff", dpi = 200)
@@ -325,7 +334,7 @@ price.lng<-ggplot(lng.price %>% filter(year <= final_year,
         axis.text.x = element_text(size = 12),
         axis.text.y = element_text(size = 12)) + 
   ylim(0, 10) + 
-  scale_color_manual(values = my_pal_scen) + 
+  scale_color_tron() +
   ggtitle("LNG prices by period (2015$/GJ)")
 
 ggsave("figures/GasPrice_LNG.tiff", price.lng, "tiff", dpi = 200)
@@ -345,11 +354,13 @@ tfe.fuel.plot<-ggplot(tfe.fuel %>% filter(region %in% selected_regions,
         legend.title = element_blank(),
         strip.text = element_text(size = 10),
         axis.title.y = element_text(size = 10),
-        axis.text.x = element_blank(),
+        axis.text.x = element_text(size = 3, angle = 90, vjust = 0.5),
         axis.text.y = element_text(size = 9)) + 
   scale_color_manual(values = my_pal_en) +
   scale_fill_manual(values = my_pal_en) +
   ggtitle("2030 Total final energy by fuel, region (EJ)")
+
+tfe.fuel.plot
 
 ggsave("figures/tfe_bySector_byReg_2030.tiff", tfe.fuel.plot, "tiff", dpi = 200)
 
@@ -369,8 +380,10 @@ tfe.plot<-ggplot(tfe.sector %>% filter(region %in% selected_regions,
         axis.title.y = element_text(size = 12),
         axis.text.x = element_text(size = 7, angle = 90, vjust = .5),
         axis.text.y = element_text(size = 9)) + 
-  scale_color_manual(values = my_pal_scen) + 
+  scale_color_tron() +
   ggtitle("Total final energy by sector, region, and period (EJ)")
+
+tfe.plot
 
 ggsave("figures/tfe_bySector_byReg.tiff", tfe.plot, "tiff", dpi = 200)
 
@@ -389,7 +402,7 @@ co2.plot<-ggplot(co2 %>% filter(region %in% selected_regions,
         axis.title.y = element_text(size = 12),
         axis.text.x = element_text(size = 9, angle = 90),
         axis.text.y = element_text(size = 10)) + 
-  scale_color_manual(values = my_pal_scen) + 
+  scale_color_tron() +
   ggtitle("CO2 emissions by region and period (MTC)")
 
 ggsave("figures/co2_byReg.tiff", co2.plot, "tiff", dpi = 200)
@@ -402,7 +415,8 @@ tra_gas_tech_vintage <- getQuery(prj,"traded gas by tech and vintage") %>% #expo
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Dom", "NDC_NoRus_Dom", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario)) %>%
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario),
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Eff", "NDC_NoRus_Eff", scenario)) %>%
   tidyr::separate(col = technology, into = c("technology", "vintage"), sep = ",") %>%
   mutate(vintage = as.integer(gsub("year=", "", vintage))) %>%
   group_by(scenario, region, sector, output, vintage, year, Units) %>%
@@ -415,7 +429,8 @@ reg_gas_tech_vintage <- getQuery(prj,"regional natural gas by tech and vintage")
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Dom", "NDC_NoRus_Dom", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario)) %>%
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario),
+         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Eff", "NDC_NoRus_Eff", scenario)) %>%
   select(scenario, region, technology, year, Units, value) %>%
   tidyr::separate(col = technology, into = c("technology", "vintage"), sep = ",") %>%
   mutate(vintage = as.integer(gsub("year=", "", vintage))) %>%
