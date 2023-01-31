@@ -122,7 +122,8 @@ gas.trade.pipeline<- getQuery(prj,"primary energy consumption by region (avg fos
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Dom", "NDC_NoRus_Dom", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Imp", "NDC_NoRus_Imp", scenario),
          scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas_Eff", "NDC_NoRus_Eff", scenario)) %>%
-  filter(grepl("pipeline", fuel)) %>%
+  filter(grepl("pipeline", fuel),
+         fuel != "gas pipeline") %>%
   mutate(sector = "imported pipeline gas",
          fuel = gsub("traded ", "", fuel),
          fuel = gsub(" pipeline gas", "", fuel)) %>%
