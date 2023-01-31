@@ -21,7 +21,7 @@ library(ggsci)
 
 # --------
 # Load project file
-prj <- loadProject("results_gas_local.dat")
+prj <- loadProject("results_gas_local_updated.dat")
 listScenarios(prj)
 QUERY_LIST <- listQueries(prj)
 
