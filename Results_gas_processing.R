@@ -21,7 +21,7 @@ library(ggsci)
 
 # --------
 # Load project file
-prj <- loadProject("paperGas.dat")
+prj <- loadProject("paperGas_fin.dat")
 listScenarios(prj)
 QUERY_LIST <- listQueries(prj)
 
@@ -387,7 +387,7 @@ reg_gas_tech_vintage <- getQuery(prj,"regional natural gas by tech and vintage")
   mutate(vintage = as.integer(gsub("year=", "", vintage))) %>%
   group_by(scenario, region, technology, year, Units) %>%
   summarise(value = sum(value)) %>%
-  ungroup()
+  ungroup() 
 
 reg_gas_tech_vintage_EU<-getQuery(prj,"regional natural gas by tech and vintage") %>% #import capacity
   rename_scen() %>%
@@ -629,7 +629,7 @@ cum_global_total_add$sector <- factor(cum_global_total_add$sector,
                                                  "traded RUS pipeline gas"))
 
 
-ggplot(data = filter(cum_global_total_add, year <= 2050),
+ggplot(data = filter(cum_global_total_add, year <= 2030),
        aes(x = year, y = cum_additions, fill = sector, group = sector))+
   geom_bar(position = position_stack(reverse = TRUE), stat = "identity")+
   stat_identity(yintercept=0, geom='hline', inherit.aes=TRUE, size = 1)+
@@ -649,7 +649,7 @@ ggplot(data = filter(cum_global_total_add, year <= 2050),
 
   ggsave(paste0("figures/","cum_global_total_add_facet_export.pdf"),last_plot(),width=11, height=8, units="in")
 
-ggplot(data = filter(cum_global_total_add, year == 2050),
+ggplot(data = filter(cum_global_total_add, year == 2030),
        aes(x = scenario, y = cum_additions, fill = sector, group = sector))+
   geom_bar(position = position_stack(reverse = TRUE), stat = "identity")+
   stat_identity(yintercept=0, geom='hline', inherit.aes=TRUE, size = 1)+
@@ -657,7 +657,7 @@ ggplot(data = filter(cum_global_total_add, year == 2050),
   theme_bw()+
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5), text = element_text(size = 12))+
   theme(legend.position = "right", text = element_text(size = 12)) +
-  scale_y_continuous(limits = c(0, 1700))+
+  #scale_y_continuous(limits = c(0, 1700))+
   scale_fill_manual(values = c(
     "traded LNG" = "gray70",
     "traded Afr_MidE pipeline gas" = "#E69F00",
@@ -679,7 +679,7 @@ cum_global_total_ret$sector <- factor(cum_global_total_ret$sector,
                                                  "traded RUS pipeline gas"))
 
 
-ggplot(data = filter(cum_global_total_ret, year <= 2050),
+ggplot(data = filter(cum_global_total_ret, year <= 2030),
        aes(x = year, y = cum_retirements, fill = sector, group = sector))+
   geom_bar(position = position_stack(reverse = TRUE), stat = "identity")+
   stat_identity(yintercept=0, geom='hline', inherit.aes=TRUE, size = 1)+
@@ -698,7 +698,7 @@ ggplot(data = filter(cum_global_total_ret, year <= 2050),
     "traded RUS pipeline gas" = "#D55E00"))
   ggsave(paste0("figures/","cum_global_total_ret_facet_export.pdf", sep = ""),width=11, height=8, units="in")
 
-ggplot(data = filter(cum_global_total_ret, year == 2050),
+ggplot(data = filter(cum_global_total_ret, year == 2030),
        aes(x = scenario, y = cum_retirements, fill = sector, group = sector))+
   geom_bar(position = position_stack(reverse = TRUE), stat = "identity")+
   stat_identity(yintercept=0, geom='hline', inherit.aes=TRUE, size = 1)+
