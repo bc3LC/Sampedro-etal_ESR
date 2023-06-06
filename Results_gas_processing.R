@@ -21,7 +21,7 @@ library(ggsci)
 
 # --------
 # Load project file
-prj <- loadProject("paperGas_fin.dat")
+prj <- loadProject("paperGas_fin2.dat")
 listScenarios(prj)
 QUERY_LIST <- listQueries(prj)
 
