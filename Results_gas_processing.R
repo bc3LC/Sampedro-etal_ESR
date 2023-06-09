@@ -244,7 +244,7 @@ all.dat = merge(all.dat, gas.pipes.lat.lon, by = 'ab') %>%
   dplyr::group_by(ab, scenario, sector, pipeline, year) %>%
   dplyr::mutate('value_ab' = sum(value)) %>%
   dplyr::ungroup() %>%
-  dplyr::filter(pipeline != 'EU') %>%
+  dplyr::filter(pipeline != 'EUR') %>%
   # rename columns to facilitate plotting
   dplyr::mutate('lat_start' = if_else(pipeline == 'RUS', gas.pipes.lat.lon %>%
                                         dplyr::filter(ab == 'RU') %>%
@@ -333,13 +333,13 @@ pie_legend = ggplot() + geom_scatterpie(data = dat_pie |> filter(ab == 'EU_NW'),
 fig1 = cowplot::ggdraw() +
   theme(plot.background = element_rect(fill="white")) +
   cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.8, height = 0.90) +
-  cowplot::draw_plot(pie_legend, x = 0.573, y = 0.925, width = 0.03, height = 0.03) +
+  cowplot::draw_plot(pie_legend, x = 0.59, y = 0.925, width = 0.03, height = 0.03) +
   cowplot::draw_plot_label(label = c("Gas price (pipeline)",
                                      "Gas imports and production in 2025"),
                            size = c(11.5,15),
-                           x = c(0.475,-0.2), y = c(0.993,0.993))
+                           x = c(0.515,-0.15), y = c(0.993,0.993))
 
-ggsave(plot = fig1, file = 'outputs/fig1_map.png', height = 200, width = 200, units = 'mm')
+ggsave(plot = fig1, file = 'figures/fig1_map.png', height = 175, width = 250, units = 'mm')
 
 
 #------------ OTHER FIGS--------------------
