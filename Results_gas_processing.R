@@ -9,6 +9,8 @@ library(tibble)
 library(gcamdata)
 library(rmap)
 library(ggsci)
+library(scatterpie)
+library(ggnewscale)
 # --------
 # Extract queries from db using rgcam
 # --------
@@ -33,7 +35,6 @@ selected_regions<-c("EFTA", "EU_Cent", "EU_NE", "EU_NW", "EU_SE", "EU_SW",
 
 final_base_year<-2015
 final_year<-2030
-
 
 # --------
 # Create a dataframe to consult with region names and countries within each region (only for consultation)
@@ -213,6 +214,124 @@ tfe.fuel<-getQuery(prj,"final energy consumption by fuel") %>%
 #-------------FIGURES-------------
 #-------------------------------------------
 #-------------------------------------------
+
+
+#------------- FIG 1 -----------------------
+#-------------------------------------------
+#-------------------------------------------
+
+selected_year = 2025
+
+regions_plt = regions %>%
+  dplyr::mutate(ISO3 = toupper(iso)) %>%
+  dplyr::rename('region_full' = 'region')
+
+# trade dataset
+dataset = gas.trade.pipeline %>% filter(region %in% c(selected_regions),
+                                        year == selected_year,
+                                        scenario %in% c('CP_Default','CP_noRus'),
+                                        pipeline != 'EU')
+
+# merge regions and trade dataset
+all.dat = merge(regions_plt, dataset, by.x = 'ab', by.y = 'region') %>%
+  dplyr::filter(ab %in% selected_regions | country_name %in% c('Morocco','Libyan Arab Jamahiriya',
+                                                               'Egypt','Algeria','Russian Federation','Russia'))
+
+# add pipelines origin & end - latitude & longitude
+gas.pipes.lat.lon = read.csv('data/gas_pipelines_latlon.csv')
+
+all.dat = merge(all.dat, gas.pipes.lat.lon, by = 'ab') %>%
+  dplyr::group_by(ab, scenario, sector, pipeline, year) %>%
+  dplyr::mutate('value_ab' = sum(value)) %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(pipeline != 'EU') %>%
+  # rename columns to facilitate plotting
+  dplyr::mutate('lat_start' = if_else(pipeline == 'RUS', gas.pipes.lat.lon %>%
+                                        dplyr::filter(ab == 'RU') %>%
+                                        dplyr::pull(latitude),
+                                      gas.pipes.lat.lon %>%
+                                        dplyr::filter(ab == 'AF') %>%
+                                        dplyr::pull(latitude))) %>%
+  dplyr::mutate('lon_start' = if_else(pipeline == 'RUS', gas.pipes.lat.lon %>%
+                                        dplyr::filter(ab == 'RU') %>%
+                                        dplyr::pull(longitude),
+                                      gas.pipes.lat.lon %>%
+                                        dplyr::filter(ab == 'AF') %>%
+                                        dplyr::pull(longitude))) %>%
+  dplyr::rename('lat_end' = 'latitude') %>%
+  dplyr::rename('lon_end' = 'longitude')
+
+# pie chart data
+dat_pie = merge(gas.all %>% filter(region %in% selected_regions,
+                                   year == 2025,
+                                   scenario  == 'CP_Default') %>%
+                  rename('production' = 'value',
+                         'units_production' = 'Units'),
+                gas.price %>% filter(region %in% selected_regions,
+                                     year == 2025,
+                                     scenario  == 'CP_Default') %>%
+                  rename('price' = 'value',
+                         'units_price' = 'Units') %>%
+                  select(-sector), by = c('scenario','region','year'))
+dat_pie = merge(regions_plt, dat_pie, by.x = 'ab', by.y = 'region') %>%
+  dplyr::filter(ab %in% selected_regions | country_name %in% c('Morocco','Libyan Arab Jamahiriya',
+                                                               'Egypt','Algeria','Russian Federation'))
+dat_pie = merge(dat_pie, gas.pipes.lat.lon, by = 'ab') %>%
+  dplyr::mutate(latitude = latitude) %>%
+  dplyr::mutate(longitude = longitude - 4)
+dat_pie = pivot_wider(dat_pie, names_from = sector, values_from = production)
+
+# world visualization
+world <- ne_countries(scale = "small", returnclass = "sf")
+world <- subset(world,!adm0_a3 %in% c("ATA","FJI"))
+world <- merge(world,all.dat, by.x = "adm0_a3", by.y = "ISO3")
+
+# palettes
+colors_pal = c('#0FB228','#085812','#1235CD','#081758','#B22A0F','#731C0A')
+labels_pal = c('Africa - CP_Def',
+               'Africa - CP_NoRus',
+               'Rusia - CP_Def',
+               'Rusia - CP_NoRus',
+               'Europe - CP_Def',
+               'Europe - CP_NoRus')
+
+
+# plot
+ggplot() + 
+  # color map by regions
+  geom_sf(data = world, xaxt = "country_name", aes(fill = ab)) + 
+  scale_fill_brewer(palette = 'Set1',
+                    name = 'Regions') +
+  ggnewscale::new_scale_fill() +
+  # add pipelines
+  geom_segment(data = world, xaxt = "country_name", aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end, linewidth = value_ab, color = interaction(pipeline,scenario)),
+               arrow = arrow(length = unit(0.25, "cm")),
+               alpha = 0.25) +
+  scale_color_manual(values = colors_pal,
+                     labels = labels_pal,
+                     name = 'Pipeline origin & scenario') +
+  guides(linewidth = guide_legend(title = "Imports [EJ]")) +
+  # add pie charts (size refears to gas price)
+  geom_scatterpie(data = dat_pie, aes(x=longitude, y=latitude, r=0.13*(price), label = price),
+                  cols = c("imported pipeline gas","imported LNG","domestic natural gas"),
+                  color = NA) +
+  geom_text(data = dat_pie, aes(x=longitude, y=latitude, label = round(price, digits = 2))) +
+  scale_fill_brewer(palette = 'Set2',
+                    name = 'Gas production') +
+  # theme
+  theme_void()
+
+
+
+
+
+
+
+
+
+
+
+
 # Gas production and trade
 gas.plot<-ggplot(gas.all %>% filter(region %in% selected_regions,
                           year <= final_year,

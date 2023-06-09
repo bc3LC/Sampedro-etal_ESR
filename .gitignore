@@ -46,6 +46,3 @@ iamc-reporting/
 
 # Old reporting folder
 old/
-
-# csv files
-*.csv
