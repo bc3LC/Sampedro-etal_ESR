@@ -297,14 +297,14 @@ labels_pal = c('Africa - CP_Def',
 
 
 # plot
-ggplot() + 
+pl = ggplot() + 
   # color map by regions
-  geom_sf(data = world, xaxt = "country_name", aes(fill = ab)) + 
+  geom_sf(data = world, aes(fill = ab)) + 
   scale_fill_brewer(palette = 'Set1',
                     name = 'Regions') +
   ggnewscale::new_scale_fill() +
   # add pipelines
-  geom_segment(data = world, xaxt = "country_name", aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end, linewidth = value_ab, color = interaction(pipeline,scenario)),
+  geom_segment(data = world, aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end, linewidth = value_ab, color = interaction(pipeline,scenario)),
                arrow = arrow(length = unit(0.25, "cm")),
                alpha = 0.25) +
   scale_color_manual(values = colors_pal,
@@ -312,7 +312,7 @@ ggplot() +
                      name = 'Pipeline origin & scenario') +
   guides(linewidth = guide_legend(title = "Imports [EJ]")) +
   # add pie charts (size refears to gas price)
-  geom_scatterpie(data = dat_pie, aes(x=longitude, y=latitude, r=0.13*(price), label = price),
+  geom_scatterpie(data = dat_pie, aes(x=longitude, y=latitude, r=0.13*(price)),
                   cols = c("imported pipeline gas","imported LNG","domestic natural gas"),
                   color = NA) +
   geom_text(data = dat_pie, aes(x=longitude, y=latitude, label = round(price, digits = 2))) +
@@ -322,14 +322,12 @@ ggplot() +
   theme_void()
 
 
+ggsave(plot = pl, file = 'outputs/fig1_map.png')
 
 
-
-
-
-
-
-
+#------------ OTHER FIGS--------------------
+#-------------------------------------------
+#-------------------------------------------
 
 
 # Gas production and trade
