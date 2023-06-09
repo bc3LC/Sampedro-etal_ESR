@@ -297,9 +297,9 @@ labels_pal = c('Africa - CP_Def',
 
 
 # plot
-pl = ggplot() + 
+pl_main = ggplot() + 
   # color map by regions
-  geom_sf(data = world, aes(fill = ab)) + 
+  geom_sf(data = world, aes(fill = ab)) +
   scale_fill_brewer(palette = 'Set1',
                     name = 'Regions') +
   ggnewscale::new_scale_fill() +
@@ -319,10 +319,26 @@ pl = ggplot() +
   scale_fill_brewer(palette = 'Set2',
                     name = 'Gas production') +
   # theme
-  theme_light()
+  theme_light() +
+  theme(axis.title=element_blank(),
+        axis.text=element_blank(),
+        axis.ticks=element_blank()) +
+  # crop
+  coord_sf(xlim = c(-33, 52), ylim = c(30, 84))
 
+pie_legend = ggplot() + geom_scatterpie(data = dat_pie |> filter(ab == 'EU_NW'), aes(x=longitude, y=latitude, r=0.13*(price)),
+                               cols = c("imported pipeline gas","imported LNG","domestic natural gas"),
+                               color = NA) + coord_equal() + theme_void() + theme(legend.position = 'none')
 
-ggsave(plot = pl, file = 'outputs/fig1_map.png', height = 30, width = 20, units = 'cm')
+fig1 = cowplot::ggdraw() +
+  cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.8, height = 0.90) +
+  cowplot::draw_plot(pie_legend, x = 0.563, y = 0.925, width = 0.03, height = 0.03) +
+  cowplot::draw_plot_label(label = c("Gas price (pipeline)"), size = 11.5,
+                           x = c(0.513), y = c(0.993)) +
+  cowplot::draw_plot_label(label = c("Gas imports and production in 2025"), size = 15,
+                           x = c(-0.015), y = c(0.993))
+
+ggsave(plot = fig1, file = 'outputs/fig1_map.png', height = 30, width = 20, units = 'cm')
 
 
 #------------ OTHER FIGS--------------------
