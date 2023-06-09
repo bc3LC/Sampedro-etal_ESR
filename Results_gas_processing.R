@@ -319,10 +319,10 @@ pl = ggplot() +
   scale_fill_brewer(palette = 'Set2',
                     name = 'Gas production') +
   # theme
-  theme_void()
+  theme_light()
 
 
-ggsave(plot = pl, file = 'outputs/fig1_map.png')
+ggsave(plot = pl, file = 'outputs/fig1_map.png', height = 30, width = 20, units = 'cm')
 
 
 #------------ OTHER FIGS--------------------
