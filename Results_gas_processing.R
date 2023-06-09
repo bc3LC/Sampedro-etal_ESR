@@ -331,14 +331,15 @@ pie_legend = ggplot() + geom_scatterpie(data = dat_pie |> filter(ab == 'EU_NW'),
                                color = NA) + coord_equal() + theme_void() + theme(legend.position = 'none')
 
 fig1 = cowplot::ggdraw() +
+  theme(plot.background = element_rect(fill="white")) +
   cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.8, height = 0.90) +
-  cowplot::draw_plot(pie_legend, x = 0.563, y = 0.925, width = 0.03, height = 0.03) +
-  cowplot::draw_plot_label(label = c("Gas price (pipeline)"), size = 11.5,
-                           x = c(0.513), y = c(0.993)) +
-  cowplot::draw_plot_label(label = c("Gas imports and production in 2025"), size = 15,
-                           x = c(-0.015), y = c(0.993))
+  cowplot::draw_plot(pie_legend, x = 0.573, y = 0.925, width = 0.03, height = 0.03) +
+  cowplot::draw_plot_label(label = c("Gas price (pipeline)",
+                                     "Gas imports and production in 2025"),
+                           size = c(11.5,15),
+                           x = c(0.475,-0.2), y = c(0.993,0.993))
 
-ggsave(plot = fig1, file = 'outputs/fig1_map.png', height = 30, width = 20, units = 'cm')
+ggsave(plot = fig1, file = 'outputs/fig1_map.png', height = 200, width = 200, units = 'mm')
 
 
 #------------ OTHER FIGS--------------------
