@@ -48,4 +48,4 @@ iamc-reporting/
 old/
 
 # csv files
-*.csv
+# *.csv
