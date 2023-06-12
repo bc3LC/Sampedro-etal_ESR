@@ -1,0 +1,28 @@
+sector,category
+agricultural energy use,industry
+alumina,industry
+chemical energy use,industry
+chemical feedstocks,industry
+comm cooling,buildings
+comm heating,buildings
+comm others,buildings
+construction energy use,industry
+desalinated water,industry
+district heat,industry
+electricity,electricity
+H2 central production,H2
+H2 wholesale dispensing,H2
+iron and steel,industry
+mining energy use,industry
+N fertilizer,industry
+other industrial energy use,industry
+other industrial feedstocks,industry
+process heat cement,industry
+refining,refining
+resid cooling,buildings
+resid heating,buildings
+resid others,buildings
+trn_freight_road,transport
+trn_pass_road,transport
+trn_pass_road_LDV,transport
+trn_pass_road_LDV_4W,transport
