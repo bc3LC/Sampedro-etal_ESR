@@ -13,6 +13,16 @@
 
    <aQuery>
      <all-regions/>
+            <supplyDemandQuery title="outputs by tech">
+                <axis1 name="technology">technology[@name]</axis1>
+                <axis2 name="Year">physical-output[@vintage]</axis2>
+                <xPath buildList="true" dataName="output" group="false" sumAll="false">*[@type='sector']/*[@type='subsector']/*[@type='technology']/*[@type='output']/physical-output/node()</xPath>
+                <comments/>
+            </supplyDemandQuery>
+   </aQuery>
+
+   <aQuery>
+     <all-regions/>
             <query title="LUC emissions by region">
                 <axis1 name="LandLeaf">LandLeaf</axis1>
                 <axis2 name="Year">land-use-change-emission[@year]</axis2>
