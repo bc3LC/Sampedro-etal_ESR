@@ -49,3 +49,6 @@ old/
 
 # csv files
 *.csv
+
+# xlsx files
+*.xlsx
