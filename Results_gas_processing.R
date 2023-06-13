@@ -235,7 +235,9 @@ world <- merge(world,regions_plt, by.x = "adm0_a3", by.y = "ISO3")
 
 ####### pipelines dataset
 # trade dataset
-dataset = gas.trade.pipeline %>% dplyr::filter(region %in% c(selected_regions),
+dataset = gas.trade.lng %>%
+  dplyr::mutate('pipeline' = 'LNG')
+dataset = bind_rows(gas.trade.pipeline,dataset) %>% dplyr::filter(region %in% c(selected_regions),
                                                year == selected_year,
                                                scenario %in% c('CP_Default','CP_noRus'))
 # difference between scenarios
@@ -266,8 +268,11 @@ dat_pie = merge(gas.all %>% filter(region %in% selected_regions,
 dat_pie = pivot_wider(dat_pie, names_from = 'scenario', values_from = c('price','production'))
 dat_pie = dat_pie %>%
   dplyr::group_by(region,year, sector,units_production, units_price) %>%
-  dplyr::summarise('price' = price_CP_Default - price_CP_noRus,
+  dplyr::summarise('price' = 100 * (price_CP_Default - price_CP_noRus) / price_CP_Default,
          'production' = production_CP_Default - production_CP_noRus)
+
+# add lat-lon
+dat_pie = merge(dat_pie, read.csv('data/regions_latlon.csv'), by = 'region')
 
 # save all bar charts as png and list them in a variable
 if (!dir.exists("figures/gas_production_by_reg")){
@@ -339,7 +344,16 @@ pl_main = ggplot() +
   scale_colour_gradient(low = "#b3de69", high = "#b73244",
                      name = 'Pipeline flow [EJ]') +
   guides(linewidth = FALSE)
-
+  # and the boat
+  pl_main <- pl_main +
+  annotation_custom(
+    grid::rasterGrob(png::readPNG('figures/boat.png'), interpolate = TRUE),
+    xmin = -19 - 0.5 - 3,
+    xmax = -19 + 0.5 + 3,
+    ymin = 48.5 - 0.5 - 3.2,
+    ymax = 48.5 + 0.5 + 3.2
+  )
+  pl_main
   # add bar chart - gas production
   img.width = 1.5
   img.height = 1.5
@@ -353,10 +367,12 @@ pl_main = ggplot() +
         ymax = regions_latlon$lat[i] + 0.5 + img.height
       )
   }
-
-pl_main
-
-  # geom_text(data = dat_pie, aes(x=longitude, y=latitude, label = round(price, digits = 2))) +
+  
+  # add price
+  pl_main = pl_main +
+  geom_text(data = dat_pie, aes(x=longitude-2, y=latitude, label = paste0(round(price, digits = 2),'%')), size=2)
+  
+  pl_main
   # theme
   theme_light() +
   theme(axis.title=element_blank(),
