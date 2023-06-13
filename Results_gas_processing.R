@@ -317,7 +317,7 @@ pl_main = ggplot() +
                     name = 'Regions') +
   ggnewscale::new_scale_fill() +
   # crop
-  coord_sf(xlim = c(-33, 52), ylim = c(30, 80))
+  coord_sf(xlim = c(-23, 52), ylim = c(30, 73))
 pl_main
   # add pipelines
   geom_segment(data = world |> dplyr::filter(ab %in% selected_regions),
