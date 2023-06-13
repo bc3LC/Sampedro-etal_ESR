@@ -30,8 +30,8 @@ QUERY_LIST <- listQueries(prj)
 
 # --------
 # Vectors to filter data: select years and desired regions for the figures
-selected_regions<-c("EFTA", "EU_Cent", "EU_NE", "EU_NW", "EU_SE", "EU_SW",
-                    "Eur_East", "Eur_nonEU", "Lithuania" , "Poland", "UK+", "Ukraine")
+selected_regions<-c("EU_Cent", "EU_NE", "EU_NW", "EU_SE", "EU_SW",
+                    "Eur_East", "Lithuania" , "Poland", "Ukraine")
 
 final_base_year<-2015
 final_year<-2030
@@ -224,27 +224,25 @@ selected_year = 2025
 
 regions_plt = regions %>%
   dplyr::mutate(ISO3 = toupper(iso)) %>%
-  dplyr::rename('region_full' = 'region')
+  dplyr::rename('region_full' = 'region') %>%
+  dplyr::mutate('ab' = ifelse(ab == "", region_full, ab))
 
 # trade dataset
 dataset = gas.trade.pipeline %>% filter(region %in% c(selected_regions),
                                         year == selected_year,
                                         scenario %in% c('CP_Default','CP_noRus'),
-                                        pipeline != 'EU')
+                                        pipeline != 'EUR')
 
 # merge regions and trade dataset
-all.dat = merge(regions_plt, dataset, by.x = 'ab', by.y = 'region') %>%
-  dplyr::filter(ab %in% selected_regions | country_name %in% c('Morocco','Libyan Arab Jamahiriya',
-                                                               'Egypt','Algeria','Russian Federation','Russia'))
+all.dat = merge(regions_plt, dataset, by.x = 'ab', by.y = 'region', all.x = TRUE) 
 
 # add pipelines origin & end - latitude & longitude
 gas.pipes.lat.lon = read.csv('data/gas_pipelines_latlon.csv')
 
-all.dat = merge(all.dat, gas.pipes.lat.lon, by = 'ab') %>%
+all.dat = left_join(all.dat, gas.pipes.lat.lon, by = 'ab') %>%
   dplyr::group_by(ab, scenario, sector, pipeline, year) %>%
   dplyr::mutate('value_ab' = sum(value)) %>%
   dplyr::ungroup() %>%
-  dplyr::filter(pipeline != 'EUR') %>%
   # rename columns to facilitate plotting
   dplyr::mutate('lat_start' = if_else(pipeline == 'RUS', gas.pipes.lat.lon %>%
                                         dplyr::filter(ab == 'RU') %>%
@@ -260,6 +258,11 @@ all.dat = merge(all.dat, gas.pipes.lat.lon, by = 'ab') %>%
                                         dplyr::pull(longitude))) %>%
   dplyr::rename('lat_end' = 'latitude') %>%
   dplyr::rename('lon_end' = 'longitude')
+
+# change name of ab of the non-selected regions
+all.dat = all.dat %>%
+  mutate(ab = ifelse(ab %in% selected_regions, ab, 'no_ab'))
+
 
 # pie chart data
 dat_pie = merge(gas.all %>% filter(region %in% selected_regions,
@@ -282,7 +285,8 @@ dat_pie = merge(dat_pie, gas.pipes.lat.lon, by = 'ab') %>%
 dat_pie = pivot_wider(dat_pie, names_from = sector, values_from = production)
 
 # world visualization
-world <- ne_countries(scale = "small", returnclass = "sf")
+world <- rnaturalearth::ne_countries(scale = "small", returnclass = "sf") %>%
+  dplyr::mutate('adm0_a3' = if_else(adm0_a3== 'ROU', 'ROM',adm0_a3))
 world <- subset(world,!adm0_a3 %in% c("ATA","FJI"))
 world <- merge(world,all.dat, by.x = "adm0_a3", by.y = "ISO3")
 
@@ -295,16 +299,29 @@ labels_pal = c('Africa - CP_Def',
                'Europe - CP_Def',
                'Europe - CP_NoRus')
 
+colors_ab = c("EU_SW" = "#cc3333",
+              "EU_SE" = "#b3de69",
+              "EU_NW" = "#41b6c4",
+              "EU_Cent" = "#73af48",
+              "EU_NE" = "#fd8d3c",
+              "Eur_East" = "#fccde5",
+              "Ukraine" = "#762a83",
+              "no_ab" = "#d1dbdd")
+
 
 # plot
 pl_main = ggplot() + 
   # color map by regions
   geom_sf(data = world, aes(fill = ab)) +
-  scale_fill_brewer(palette = 'Set1',
+  scale_fill_manual(values = colors_ab,
                     name = 'Regions') +
   ggnewscale::new_scale_fill() +
+  # crop
+  coord_sf(xlim = c(-33, 52), ylim = c(30, 80))
+pl_main
   # add pipelines
-  geom_segment(data = world, aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end, linewidth = value_ab, color = interaction(pipeline,scenario)),
+  geom_segment(data = world |> dplyr::filter(ab %in% selected_regions),
+               aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end, linewidth = value_ab, color = interaction(pipeline,scenario)),
                arrow = arrow(length = unit(0.25, "cm")),
                alpha = 0.25) +
   scale_color_manual(values = colors_pal,
