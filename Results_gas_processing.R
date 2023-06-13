@@ -361,9 +361,7 @@ pl_main
   theme_light() +
   theme(axis.title=element_blank(),
         axis.text=element_blank(),
-        axis.ticks=element_blank()) +
-  # crop
-  coord_sf(xlim = c(-33, 52), ylim = c(30, 84))
+        axis.ticks=element_blank())
 
 pie_legend = ggplot() + geom_scatterpie(data = dat_pie |> filter(ab == 'EU_NW'), aes(x=longitude, y=latitude, r=0.13*(price)),
                                cols = c("imported pipeline gas","imported LNG","domestic natural gas"),
