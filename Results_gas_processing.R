@@ -308,7 +308,7 @@ pl_main = ggplot() +
   scale_colour_gradient(low = "#b3de69", high = "#b73244",
                      # labels = labels_pal,
                      name = 'Pipeline flow [EJ]') +
-  guides(linewidth = guide_legend(title = "Imports [EJ]"))
+  guides(linewidth = FALSE)
   
   pl_main
   
