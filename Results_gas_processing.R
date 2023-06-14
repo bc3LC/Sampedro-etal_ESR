@@ -313,9 +313,9 @@ for (reg in unique(dat_pie$region)) {
       axis.text.y = element_text(size = 20)
     ) +
     # erase legend
-    guides(fill = FALSE, color = FALSE) 
-    # # fix OY axis for better comparisson
-    # ylim(min(dat_pie$production), max(dat_pie$production))
+    guides(fill = FALSE, color = FALSE) +
+    # fix OY axis for better comparisson
+    ylim(min(dat_pie$production), max(dat_pie$production))
   ggsave(plot = pl_reg, file = paste0('figures/gas_production_by_reg/',reg,'.png'), width = 60, height = 80, units = 'mm')
 }
 list_gas.production = list(
@@ -365,8 +365,8 @@ pl_main = ggplot() +
   )
   
   # add bar chart - gas production
-  img.width = 2
-  img.height = 2
+  img.width = 3
+  img.height = 3
   for (i in seq_along(list_gas.production)) {
     pl_main <- pl_main +
       annotation_custom(
@@ -380,7 +380,7 @@ pl_main = ggplot() +
   
   # add price
   pl_main = pl_main +
-  geom_text(data = dat_pie, aes(x=longitude+0.75, y=latitude-2.2, label = paste0(round(price, digits = 2),'%')), size=3) +
+  geom_text(data = dat_pie, aes(x=longitude+1.25, y=latitude-2.65, label = paste0(round(price, digits = 2),'%')), size=3) +
   
   # theme
   theme_light() +
@@ -447,7 +447,7 @@ fig1 = cowplot::ggdraw() +
   #                          x = -0.245, y = 0.993)
 
 # save
-ggsave(plot = fig1, file = 'figures/fig1_map.png', height = 205, width = 225, units = 'mm')
+ggsave(plot = fig1, file = 'figures/fig1_map2.png', height = 205, width = 225, units = 'mm')
 
 
 #------------ OTHER FIGS--------------------
