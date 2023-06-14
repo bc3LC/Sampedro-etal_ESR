@@ -286,28 +286,33 @@ if (!dir.exists("figures/gas_production_by_reg")){
 }
 for (reg in unique(dat_pie$region)) {
   pl_reg = ggplot() +
+    # barchart
     geom_bar(data = dat_pie |> filter(region == reg),
              aes(x = 0, y = production, fill = as.factor(sector)),
              stat = "identity", color = NA, width = 0.5,
              position = position_stack(reverse = TRUE)) +
     scale_fill_manual(values = c('#188965','#49C5FA','#2f0099')) +
+    # total production
     geom_errorbar(data = dat_pie_sum |> filter(region == reg),
                   aes(x = 0, y = total_production, ymin = total_production, ymax = total_production, color = as.factor(year)),
                   linewidth = 1.4, linetype = "longdash", width = 0.5) +
     scale_color_manual(values = "red", labels = "Net Change in Output", name = '',
                        guide = guide_legend(keywidth = 2 )) +
+    # horizontal line at y = 0
     geom_hline(yintercept = 0, linewidth = 1.2) +
+    # theme
     theme_void() +
     theme(
       panel.border = element_blank(),
-      panel.background = element_rect(fill='#E7E7D3'),
-      plot.background = element_rect(fill='#E7E7D3', color=NA),
+      panel.background = element_blank(),
+      plot.background = element_blank(),
       panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      legend.background = element_rect(fill='#E7E7D3'),
-      legend.box.background = element_rect(fill='#E7E7D3')
+      panel.grid.minor = element_blank()
     ) +
-    guides(fill = FALSE, color = FALSE)
+    # erase legend
+    guides(fill = FALSE, color = FALSE) +
+    # fix OY axis for better comparisson
+    ylim(min(dat_pie$production), max(dat_pie$production))
   ggsave(plot = pl_reg, file = paste0('figures/gas_production_by_reg/',reg,'.png'), width = 40, height = 80, units = 'mm')
 }
 list_gas.production = list(
@@ -384,7 +389,7 @@ pl_main = ggplot() +
         panel.background = element_rect(fill = "#c8e3f7",
                                         colour = "#c8e3f7"))
   
-  
+pl_main  
 # legends
 # create a blank plot for legend alignment
 blank_p <- plot_spacer() + theme_void()
