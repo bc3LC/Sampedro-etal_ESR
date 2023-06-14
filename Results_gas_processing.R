@@ -301,19 +301,22 @@ for (reg in unique(dat_pie$region)) {
     # horizontal line at y = 0
     geom_hline(yintercept = 0, linewidth = 1.2) +
     # theme
-    theme_void() +
+    theme_minimal() + labs(x = '', y = '') +
     theme(
       panel.border = element_blank(),
       panel.background = element_blank(),
       plot.background = element_blank(),
       panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank()
+      panel.grid.minor = element_blank(),
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.text.y = element_text(size = 20)
     ) +
     # erase legend
-    guides(fill = FALSE, color = FALSE) +
-    # fix OY axis for better comparisson
-    ylim(min(dat_pie$production), max(dat_pie$production))
-  ggsave(plot = pl_reg, file = paste0('figures/gas_production_by_reg/',reg,'.png'), width = 40, height = 80, units = 'mm')
+    guides(fill = FALSE, color = FALSE) 
+    # # fix OY axis for better comparisson
+    # ylim(min(dat_pie$production), max(dat_pie$production))
+  ggsave(plot = pl_reg, file = paste0('figures/gas_production_by_reg/',reg,'.png'), width = 60, height = 80, units = 'mm')
 }
 list_gas.production = list(
   png::readPNG("figures/gas_production_by_reg/EU_Cent.png"),
@@ -331,7 +334,7 @@ colors_ab = c("EU_SW" = "#cc3333",
               "EU_NW" = "#41b6c4",
               "EU_Cent" = "#73af48",
               "EU_NE" = "#fd8d3c",
-              "UK+" = "#762a83")
+              "UK+" = "#fccde5")
 
 # plot
 pl_main = ggplot() +
@@ -362,8 +365,8 @@ pl_main = ggplot() +
   )
   
   # add bar chart - gas production
-  img.width = 1.5
-  img.height = 1.5
+  img.width = 2
+  img.height = 2
   for (i in seq_along(list_gas.production)) {
     pl_main <- pl_main +
       annotation_custom(
@@ -377,7 +380,7 @@ pl_main = ggplot() +
   
   # add price
   pl_main = pl_main +
-  geom_text(data = dat_pie, aes(x=longitude, y=latitude-2.65, label = paste0(round(price, digits = 2),'%')), size=3) +
+  geom_text(data = dat_pie, aes(x=longitude+0.75, y=latitude-2.2, label = paste0(round(price, digits = 2),'%')), size=3) +
   
   # theme
   theme_light() +
@@ -389,7 +392,6 @@ pl_main = ggplot() +
         panel.background = element_rect(fill = "#c8e3f7",
                                         colour = "#c8e3f7"))
   
-pl_main  
 # legends
 # create a blank plot for legend alignment
 blank_p <- plot_spacer() + theme_void()
