@@ -289,6 +289,7 @@ for (reg in unique(dat_pie$region)) {
     scale_fill_manual(values = c('#188965','#d5398b','#2f0099')) +
     theme_void() +
     theme(
+      panel.border = element_blank(),
       panel.background = element_rect(fill='#E7E7D3'),
       plot.background = element_rect(fill='#E7E7D3', color=NA),
       panel.grid.major = element_blank(),
@@ -335,7 +336,7 @@ pl_main = ggplot() +
                arrow = arrow(length = unit(0.25, "cm")),
                alpha = 0.8) +
   scale_colour_gradient(low = "#b3de69", high = "#b73244",
-                     name = 'Pipeline flow [EJ]') +
+                     name = 'Pipeline flow\ndifference [EJ]') +
   guides(linewidth = FALSE)
   # and the boat
   pl_main <- pl_main +
@@ -365,12 +366,19 @@ pl_main = ggplot() +
   pl_main = pl_main +
   geom_text(data = dat_pie, aes(x=longitude, y=latitude-2, label = paste0(round(price, digits = 2),'%')), size=3)
   
-  pl_main
   # theme
+    pl_main = pl_main +
+    
   theme_light() +
   theme(axis.title=element_blank(),
         axis.text=element_blank(),
-        axis.ticks=element_blank())
+        axis.ticks=element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#c8e3f7",
+                                        colour = "#c8e3f7"))
+  
+  pl_main
 
 pie_legend = ggplot() + geom_scatterpie(data = dat_pie |> filter(ab == 'EU_NW'), aes(x=longitude, y=latitude, r=0.13*(price)),
                                cols = c("imported pipeline gas","imported LNG","domestic natural gas"),
