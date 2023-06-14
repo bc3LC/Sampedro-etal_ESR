@@ -95,7 +95,7 @@ pop<- getQuery(prj,"Population by region") %>%
 # Primary Energy
 pr.energy<- getQuery(prj,"primary energy consumption by region (avg fossil efficiency)") %>%
   rename_scen()
-
+  
 #----------------------------------------
 # Gas
 gas.dom.prod<-getQuery(prj,"primary energy consumption by region (avg fossil efficiency)") %>%
@@ -226,7 +226,8 @@ selected_year = 2025
 regions_plt = regions %>%
   dplyr::mutate(ISO3 = toupper(iso)) %>%
   dplyr::rename('region_full' = 'region') %>%
-  dplyr::mutate('ab' = ifelse(ab == "", region_full, ab))
+  dplyr::mutate('ab' = ifelse(ab == "", region_full, ab)) %>%
+  dplyr::filter(country_name != 'Greenland')
 # world visualization
 world <- rnaturalearth::ne_countries(scale = "small", returnclass = "sf") %>%
   dplyr::mutate('adm0_a3' = if_else(adm0_a3== 'ROU', 'ROM',adm0_a3))
@@ -234,7 +235,7 @@ world <- subset(world,!adm0_a3 %in% c("ATA","FJI"))
 world <- merge(world,regions_plt, by.x = "adm0_a3", by.y = "ISO3")
 
 ####### pipelines dataset
-# trade dataset
+# trade dataset (LNG and pipelines' gas)
 dataset = gas.trade.lng %>%
   dplyr::mutate('pipeline' = 'LNG')
 dataset = bind_rows(gas.trade.pipeline,dataset) %>% dplyr::filter(region %in% c(selected_regions),
@@ -309,13 +310,6 @@ list_gas.production = list(
 )
 regions_latlon = read.csv('data/regions_latlon.csv')
 
-# dat_pie = pivot_wider(dat_pie, names_from = sector, values_from = production)
-# dat_pie = dat_pie  %>%
-#   # set zeros the NA values
-#   dplyr::mutate('domestic natural gas' = replace_na(`domestic natural gas`, 0),
-#                 'imported LNG' = replace_na(`imported LNG`, 0),
-#                 'imported pipeline gas' = replace_na(`imported pipeline gas`, 0))
-
 # palettes
 colors_ab = c("EU_SW" = "#cc3333",
               "EU_SE" = "#b3de69",
@@ -323,8 +317,7 @@ colors_ab = c("EU_SW" = "#cc3333",
               "EU_Cent" = "#73af48",
               "EU_NE" = "#fd8d3c",
               "Eur_East" = "#fccde5",
-              "Ukraine" = "#762a83",
-              "no_ab" = "#d1dbdd")
+              "Ukraine" = "#762a83")
 
 
 # plot
@@ -353,10 +346,10 @@ pl_main = ggplot() +
     ymin = 48.5 - 0.5 - 3.2,
     ymax = 48.5 + 0.5 + 3.2
   )
-  pl_main
+  
   # add bar chart - gas production
-  img.width = 1.5
-  img.height = 1.5
+  img.width = 1.25
+  img.height = 1.75
   for (i in seq_along(list_gas.production)) {
     pl_main <- pl_main +
       annotation_custom(
@@ -370,7 +363,7 @@ pl_main = ggplot() +
   
   # add price
   pl_main = pl_main +
-  geom_text(data = dat_pie, aes(x=longitude-2, y=latitude, label = paste0(round(price, digits = 2),'%')), size=2)
+  geom_text(data = dat_pie, aes(x=longitude, y=latitude-2, label = paste0(round(price, digits = 2),'%')), size=3)
   
   pl_main
   # theme
