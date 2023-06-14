@@ -275,6 +275,11 @@ dat_pie = dat_pie %>%
 # add lat-lon
 dat_pie = merge(dat_pie, read.csv('data/regions_latlon.csv'), by = 'region')
 
+# compute total production
+dat_pie_sum = dat_pie %>%
+  dplyr::group_by(region, year) %>%
+  dplyr::summarise('total_production' = sum(production))
+
 # save all bar charts as png and list them in a variable
 if (!dir.exists("figures/gas_production_by_reg")){
   dir.create("figures/gas_production_by_reg")
@@ -282,11 +287,16 @@ if (!dir.exists("figures/gas_production_by_reg")){
 for (reg in unique(dat_pie$region)) {
   pl_reg = ggplot() +
     geom_bar(data = dat_pie |> filter(region == reg),
-             aes(x = sector, y = production, fill = as.factor(sector)),
-             stat = "identity", color = NA,
-             # width = 0.2, position=position_dodge(width = 0.5)
-             ) +
-    scale_fill_manual(values = c('#188965','#d5398b','#2f0099')) +
+             aes(x = 0, y = production, fill = as.factor(sector)),
+             stat = "identity", color = NA, width = 0.5,
+             position = position_stack(reverse = TRUE)) +
+    scale_fill_manual(values = c('#188965','#49C5FA','#2f0099')) +
+    geom_errorbar(data = dat_pie_sum |> filter(region == reg),
+                  aes(x = 0, y = total_production, ymin = total_production, ymax = total_production, color = as.factor(year)),
+                  linewidth = 1.4, linetype = "longdash", width = 0.5) +
+    scale_color_manual(values = "red", labels = "Net Change in Output", name = '',
+                       guide = guide_legend(keywidth = 2 )) +
+    geom_hline(yintercept = 0, linewidth = 1.2) +
     theme_void() +
     theme(
       panel.border = element_blank(),
@@ -297,8 +307,8 @@ for (reg in unique(dat_pie$region)) {
       legend.background = element_rect(fill='#E7E7D3'),
       legend.box.background = element_rect(fill='#E7E7D3')
     ) +
-    guides(fill = FALSE)
-  ggsave(plot = pl_reg, file = paste0('figures/gas_production_by_reg/',reg,'.png'))
+    guides(fill = FALSE, color = FALSE)
+  ggsave(plot = pl_reg, file = paste0('figures/gas_production_by_reg/',reg,'.png'), width = 40, height = 80, units = 'mm')
 }
 list_gas.production = list(
   png::readPNG("figures/gas_production_by_reg/EU_Cent.png"),
@@ -347,12 +357,12 @@ pl_main = ggplot() +
   )
   
   # add bar chart - gas production
-  img.width = 1.25
-  img.height = 1.75
+  img.width = 1.5
+  img.height = 1.5
   for (i in seq_along(list_gas.production)) {
     pl_main <- pl_main +
       annotation_custom(
-        grid::rasterGrob(list_gas.production[[i]], interpolate = TRUE),
+        grid::rasterGrob(list_gas.production[[i]]),
         xmin = regions_latlon$lon[i] - 0.5 - img.width,
         xmax = regions_latlon$lon[i] + 0.5 + img.width,
         ymin = regions_latlon$lat[i] - 0.5 - img.height,
@@ -362,7 +372,7 @@ pl_main = ggplot() +
   
   # add price
   pl_main = pl_main +
-  geom_text(data = dat_pie, aes(x=longitude, y=latitude-2, label = paste0(round(price, digits = 2),'%')), size=3) +
+  geom_text(data = dat_pie, aes(x=longitude, y=latitude-2.65, label = paste0(round(price, digits = 2),'%')), size=3) +
   
   # theme
   theme_light() +
@@ -380,11 +390,19 @@ pl_main = ggplot() +
 blank_p <- plot_spacer() + theme_void()
   
 # barcharts legend
-leg_barcharts = get_legend(ggplot() +
-                             geom_bar(data = dat_pie |> filter(region == reg),
-                                      aes(x = sector, y = production, fill = as.factor(sector)),
-                                      stat = "identity", color = NA) +
-                             scale_fill_manual(values = c('#188965','#d5398b','#2f0099'), name = 'Sector production [EJ]'))
+leg_barcharts1 = get_legend(ggplot() +
+                              geom_bar(data = dat_pie |> filter(region == reg),
+                                       aes(x = 0, y = production, fill = as.factor(sector)),
+                                       stat = "identity", color = NA, width = 0.5,
+                                       position = position_stack(reverse = TRUE)) +
+                              scale_fill_manual(values = c('#188965','#49C5FA','#2f0099'), name = 'Sector production'))
+leg_barcharts2 = get_legend(ggplot() +
+                              geom_errorbar(data = dat_pie_sum |> filter(region == reg),
+                                            aes(x = 0, y = total_production, ymin = total_production, ymax = total_production, color = as.factor(year)),
+                                            linewidth = 1.4, linetype = "longdash", width = 0.5) +
+                              scale_color_manual(values = "red", labels = "Net Change in output",
+                                                 guide = guide_legend(keywidth = 1.25, title = NULL)) +
+                              theme(legend.key = element_rect(fill = "transparent", colour = "transparent")))
 # regions legend
 leg_regions = get_legend(ggplot() +
                            # color map by regions
@@ -413,7 +431,8 @@ fig1 = cowplot::ggdraw() +
   theme(plot.background = element_rect(fill="white")) +
   cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.90, height = 0.90) +
   cowplot::draw_plot(plot_grid(leg_pipelines,blank_p,nrow=1), x = 0.09, y = 0.755, width = 0.03, height = 0.02) +
-  cowplot::draw_plot(plot_grid(leg_barcharts,blank_p,nrow=1), x = 0.26, y = 0.79, width = 0.03, height = 0.03) +
+  cowplot::draw_plot(plot_grid(leg_barcharts1,blank_p,nrow=1), x = 0.26, y = 0.79, width = 0.03, height = 0.03) +
+  cowplot::draw_plot(plot_grid(leg_barcharts2,blank_p,nrow=1), x = 0.268, y = 0.71, width = 0.00001, height = 0.00001) +
   cowplot::draw_plot(plot_grid(leg_price,blank_p,nrow=1), x = 0.375, y = 0.705, width = 0.25, height = 0.2)
   # # title
   # + cowplot::draw_plot_label(label = paste0("Gas imports and production in ",selected_year),
