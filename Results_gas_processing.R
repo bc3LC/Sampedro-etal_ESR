@@ -1,4 +1,5 @@
 setwd("~/gas_crisis_analysis")
+source("functions_gas_processing.R")
 # Load libraries ----
 library(rgcam)
 library(dplyr)
@@ -39,8 +40,8 @@ QUERY_LIST <- listQueries(prj)
 GWP <- readr::read_csv("data/GWP_AR5.csv")
 gas_cons_sectors <- readr::read_csv("data/gas_cons_sectors.csv")
 # Filter data: years and regions ----
-selected_regions<-c("EFTA", "EU_Cent", "EU_NE", "EU_NW", "EU_SE", "EU_SW",
-                    "Eur_East", "Eur_nonEU", "Lithuania" , "Poland", "UK+", "Ukraine")
+selected_regions<-c("EU_Cent", "EU_NE", "EU_NW", "EU_SE", "EU_SW",
+                    "Lithuania" , "Poland", "UK+")
 
 final_base_year<-2015
 final_year<-2030
@@ -70,36 +71,6 @@ my_pal_ghg<-c("#999999","#d01c2a","deepskyblue1","#11d081")
 my_pal_ghg_luc<-c("#999999","#00931d", "#d01c2a","deepskyblue1","#CC79A7")
 
 #my_pal_ssp<-c("forestgreen","dodgerblue3","darkgoldenrod3","firebrick3","black")
-
-# Ancillary functions ------
-
-rename_scen<- function(df){
-  
-  df<- df %>%
-  mutate(scenario = if_else(scenario == "NewGasCalib_EUpre55CP", "CP_Default", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_noRusGas", "CP_NoRus", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario))
-  
-  return(invisible(df))
-  
-}
-
-symmetrise_scale <- function(p, axis = "x"){
-  gb <- ggplot_build(p)
-  panel <- switch(axis, "x" = "panel_scales_x", "y" = "panel_scales_y")
-  
-  fname <- setdiff(names(gb$layout$layout), c("PANEL", "ROW", "COL",  "SCALE_X", "SCALE_Y"))  
-  facets <- gb$layout$layout[ ,fname, drop=FALSE][[fname]]
-  
-  range <- sapply(sapply(gb$layout[[panel]], "[[", "range"), "[[", "range")
-  range2 <- as.vector(t(tcrossprod(apply(abs(range), 2, max), c(-1,1))))
-  dummy <- setNames(data.frame(rep(facets, each=2), range2), c(fname, axis))
-  switch(axis, 
-         "x" = p + geom_blank(data=dummy, aes(x=x, y=Inf), inherit.aes = FALSE), 
-         "y" = p + geom_blank(data=dummy, aes(x=Inf, y=y), inherit.aes = FALSE))
-}
-
 # =======================================================================
 # ===================================DATA PROCESSING====================================
 # Income -----------
@@ -146,6 +117,15 @@ elec_gen <- getQuery(prj,"elec gen by gen tech") %>%
   mutate(region = if_else(ab != "", ab, region)) %>%
   select(-ab) %>% 
   mutate(subsector = str_replace(subsector, "rooftop_pv", "solar")) %>% 
+  group_by(Units, scenario, region, subsector, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup
+
+elec_gen_grouped <- elec_gen %>% 
+  mutate(fuel = if_else(subsector %in% c("coal", "refined liquids"),
+                        "other-fossil", "low-carbon"),
+         fuel = if_else(subsector == "gas",
+                        "gas", fuel)) %>% 
   group_by(Units, scenario, region, subsector, year) %>% 
   summarise(value = sum(value)) %>% 
   ungroup
@@ -472,299 +452,110 @@ ind_en_diff_grouped <- ind_en_diff %>%
 # ================================FIGURES=======================================
 # Electricity Final------
 elec_colors_grouped <- c("gas" = "dodgerblue3", "other-fossil" = "grey20", "low-carbon" = "gold")
-sum_bars <- elec_gen_diff_grouped %>% 
-  filter(region %in% selected_regions,
-         year == 2030) %>% 
-  group_by(scen_policy, region) %>% 
-  summarise(sum_diff = sum(diff)) %>% 
-  ungroup
 
-plot_data <- elec_gen_diff_grouped %>% 
-  filter(region %in% selected_regions,
-         year == 2030) %>% 
-  left_join_error_no_match(sum_bars, by = join_by(scen_policy, region))
+elec.diff.grouped.plot <- diff_plot(elec_gen_diff_grouped, 
+          colors = elec_colors_grouped, 
+          fill = "fuel", 
+          ylab = "EJ",
+          sum_line_lab = "Net Change in Generation",
+          title = "2030 Difference in Electricity Generation; noRusGas-Default (EJ)") %>% 
+  symmetrise_scale("y")
 
-elec.diff.grouped.plot <- ggplot(plot_data,
-                                 # !subsector %in% c("coal", "gas", "refined liquids")), 
-                                 aes(x = scen_policy, y = diff,  
-                                     fill = factor(fuel, names(elec_colors_grouped)))) + 
-  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
-  geom_errorbar(aes(y = sum_diff, ymin = sum_diff, ymax = sum_diff, color = Units),
-                #color = "grey85", 
-                linetype = "longdash", linewidth = 0.8)+
-  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
-  facet_wrap(~ region, scales = "free") + 
-  theme_bw() + 
-  labs(x = "", y = "EJ") + 
-  guides(fill = guide_legend(nrow = 1)) + 
-  geom_hline(yintercept = 0,  linewidth = 0.75) +
-  theme(legend.position = "bottom",
-        legend.title = element_blank(),
-        legend.background = element_rect(fill = "grey85"),
-        strip.text = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        axis.text.x = element_text(size = 9, vjust = 0.5),
-        axis.text.y = element_text(size = 9)) + 
-  scale_color_manual(values = "red", labels = "Net Change in Generation",
-                     guide = guide_legend(keywidth = 4 )) +
-  scale_fill_manual(values = elec_colors_grouped) +
-  ggtitle("2030 Difference in Electricity Generation; noRusGas-Default (EJ)")
-
-symmetrise_scale(elec.diff.grouped.plot, "y")
+elec.diff.grouped.plot
 
 ggsave("figures/elec_diff.png", 
-       plot = symmetrise_scale(elec.diff.grouped.plot, "y"), 
+       plot = elec.diff.grouped.plot, 
        height = 6, width = 9)
 
 # Building Final------
 bld_grpd_colors <- c("gas" = "dodgerblue3","fossil" = "grey20",  "electricity" = "goldenrod", 
                 "other" = "olivedrab")
-colors <- bld_grpd_colors
 
-sum_bars <- bld_out_diff_grouped %>% 
-  filter(region %in% selected_regions,
-         year == 2030) %>% 
-  group_by(scen_policy, region) %>% 
-  summarise(sum_diff = sum(diff)) %>% 
-  ungroup
+bld.out.diff.plot <- diff_plot(bld_out_diff_grouped, 
+                                    colors = bld_grpd_colors, 
+                                    fill = "fuel", 
+                                    ylab = "EJ",
+                                    sum_line_lab = "Net Change in Output",
+                                    title = "2030 Difference in Building Service Output; noRusGas-Default (EJ)") %>% 
+  symmetrise_scale("y")
 
-plot_data <- bld_out_diff_grouped %>% 
-  filter(region %in% selected_regions,
-         year == 2030) %>% 
-  left_join_error_no_match(sum_bars, by = join_by(scen_policy, region))
-
-bld.out.diff.plot <- ggplot(plot_data %>% filter(region %in% selected_regions,
-                                                            year == 2030),
-                            # !subsector %in% c("coal", "gas", "refined liquids")), 
-                            aes(x = scen_policy, y = diff, 
-                                fill = factor(fuel, names(colors)))) + 
-  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
-  geom_errorbar(aes(y = sum_diff, ymin = sum_diff, ymax = sum_diff, color = Units),
-                #color = "grey85", 
-                linetype = "longdash", linewidth = 0.8) +
-  scale_color_manual(values = "red", labels = "Net Change in Output",
-                     guide = guide_legend(keywidth = 4 )) +
-  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
-  facet_wrap(~ region, scales = "free") + 
-  theme_bw() + 
-  labs(x = "", y = "EJ") + 
-  guides(fill = guide_legend(nrow = 1)) + 
-  geom_hline(yintercept = 0, linewidth = 0.75) +
-  theme(legend.position = "bottom",
-        legend.title = element_blank(),
-        legend.background = element_rect(fill = "grey85"),
-        strip.text = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        axis.text.x = element_text(size = 9, vjust = 0.5),
-        axis.text.y = element_text(size = 9)) + 
-  scale_fill_manual(values = colors) +
-  ggtitle("2030 Difference in Building Service Output; noRusGas-Default (EJ)")
-
-symmetrise_scale(bld.out.diff.plot, "y")
+bld.out.diff.plot
 
 ggsave("figures/bld_out_diff.png", 
-       plot = symmetrise_scale(bld.out.diff.plot, "y"), 
+       plot = bld.out.diff.plot, 
        height = 6, width = 9)
 
 # Industry Final------
 ind_grpd_colors <- c("gas" = "dodgerblue3","other fossil" = "grey20",  "elec/H2" = "goldenrod", 
                      "biomass" = "forestgreen", "district heat" = "brown4")
-colors <- ind_grpd_colors
 
-sum_bars <- ind_en_diff_grouped %>% 
-  filter(region %in% selected_regions,
-         year == 2030) %>% 
-  group_by(scen_policy, region) %>% 
-  summarise(sum_diff = sum(diff)) %>% 
-  ungroup
+ind.en.diff.plot <- diff_plot(ind_en_diff_grouped, 
+                               colors = ind_grpd_colors, 
+                               fill = "fuel", 
+                               ylab = "EJ",
+                               sum_line_lab = "Net Change in Energy Input",
+                               title = "2030 Difference in Industry Energy Use; noRusGas-Default (EJ)") %>% 
+  symmetrise_scale("y")
 
-plot_data <- ind_en_diff_grouped %>% 
-  filter(region %in% selected_regions,
-         year == 2030) %>% 
-  left_join_error_no_match(sum_bars, by = join_by(scen_policy, region))
-
-ind.en.diff.plot <- ggplot(plot_data %>% filter(region %in% selected_regions,
-                                                 year == 2030),
-                            # !subsector %in% c("coal", "gas", "refined liquids")), 
-                            aes(x = scen_policy, y = diff, 
-                                fill = factor(fuel, names(colors)))) + 
-  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
-  geom_errorbar(aes(y = sum_diff, ymin = sum_diff, ymax = sum_diff, color = Units),
-                #color = "grey85", 
-                linetype = "longdash", linewidth = 0.8) +
-  scale_color_manual(values = "red", labels = "Net Change in Energy Input",
-                     guide = guide_legend(keywidth = 4 )) +
-  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
-  facet_wrap(~ region, scales = "free") + 
-  theme_bw() + 
-  labs(x = "", y = "EJ") + 
-  guides(fill = guide_legend(nrow = 1)) + 
-  geom_hline(yintercept = 0, linewidth = 0.75) +
-  theme(legend.position = "bottom",
-        legend.title = element_blank(),
-        strip.text = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        axis.text.x = element_text(size = 9, vjust = 0.5),
-        axis.text.y = element_text(size = 9)) + 
-  scale_fill_manual(values = colors) +
-  ggtitle("2030 Difference in Industry Energy Input; noRusGas-Default (EJ)")
-
-symmetrise_scale(ind.en.diff.plot, "y")
+ind.en.diff.plot
 
 ggsave("figures/ind_en_diff.png", 
-       plot = symmetrise_scale(ind.out.diff.plot, "y"), 
+       plot = ind.out.diff.plot, 
        height = 6, width = 9)
 
 # Primary Energy Final -----
 pr.en_grpd_colors <- c("gas" = "dodgerblue3","other fossil" = "grey20",  "low-carbon" = "gold")
-colors <- pr.en_grpd_colors
 
-sum_bars <- pr.energy_diff_grouped %>% 
-  filter(region %in% selected_regions,
-         year == 2030) %>% 
-  group_by(scen_policy, region) %>% 
-  summarise(sum_diff = sum(diff)) %>% 
-  ungroup
+pr.en.diff.plot <- diff_plot(pr.energy_diff_grouped, 
+                              colors = pr.en_grpd_colors, 
+                              fill = "fuel", 
+                              ylab = "EJ",
+                              sum_line_lab = "Net Change in Energy",
+                              title = "2030 Difference in Primary Energy; noRusGas-Default (EJ)") %>% 
+  symmetrise_scale("y")
 
-plot_data <- pr.energy_diff_grouped %>% 
-  filter(region %in% selected_regions,
-         year == 2030) %>% 
-  left_join_error_no_match(sum_bars, by = join_by(scen_policy, region))
-
-pr.en.diff.plot <- ggplot(plot_data %>% filter(region %in% selected_regions,
-                                                 year == 2030),
-                            # !subsector %in% c("coal", "gas", "refined liquids")), 
-                            aes(x = scen_policy, y = diff, 
-                                fill = factor(fuel, names(colors)))) + 
-  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
-  geom_errorbar(aes(y = sum_diff, ymin = sum_diff, ymax = sum_diff, color = Units),
-                #color = "grey85", 
-                linetype = "longdash", linewidth = 0.8) +
-  scale_color_manual(values = "red", labels = "Net Change in Primary Energy",
-                     guide = guide_legend(keywidth = 4 )) +
-  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
-  facet_wrap(~ region, scales = "free") + 
-  theme_bw() + 
-  labs(x = "", y = "EJ") + 
-  guides(fill = guide_legend(nrow = 1)) + 
-  geom_hline(yintercept = 0, linewidth = 0.75) +
-  theme(legend.position = "bottom",
-        legend.title = element_blank(),
-        strip.text = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        axis.text.x = element_text(size = 9, vjust = 0.5),
-        axis.text.y = element_text(size = 9)) + 
-  scale_fill_manual(values = colors) +
-  ggtitle("2030 Difference in Primary Energy; noRusGas-Default (EJ)")
-
-symmetrise_scale(pr.en.diff.plot, "y")
+pr.en.diff.plot
 
 ggsave("figures/pe_diff.png", 
-       plot = symmetrise_scale(pr.en.diff.plot, "y"), 
+       plot = pr.en.diff.plot, 
        height = 6, width = 9)
 
 # Emissions with LUC Final -------------
-ghg_colors <- c("LUC CO2" = "green4", "FFI CO2" = "grey50", "CH4" = "purple3",
+ghg_colors_luc <- c("LUC CO2" = "green4", "FFI CO2" = "grey50", "CH4" = "purple3",
                 "N2O" = "dodgerblue4", "F-Gas" = "orange2")
 
-colors <- ghg_colors
+ghg.diff.luc.plot <- diff_plot(ghg_by_gas_diff, 
+                             colors = ghg_colors_luc, 
+                             fill = "group", 
+                             ylab = "MtCO2e",
+                             sum_line_lab = "Net Change in Emissions",
+                             title = "2030 Difference in GHG Emissions; noRusGas-Default (EJ)") %>% 
+  symmetrise_scale("y")
 
-sum_bars <- ghg_by_gas_diff %>% 
-  filter(region %in% selected_regions,
-         year == 2030) %>% 
-  group_by(scen_policy, region) %>% 
-  summarise(sum_diff = sum(diff)) %>% 
-  ungroup
-
-plot_data <- ghg_by_gas_diff %>% 
-  filter(region %in% selected_regions,
-         year == 2030) %>% 
-  left_join_error_no_match(sum_bars, by = join_by(scen_policy, region))
-
-ghg.diff.plot <- ggplot(plot_data %>% filter(region %in% selected_regions,
-                                               year == 2030),
-                          # !subsector %in% c("coal", "gas", "refined liquids")), 
-                          aes(x = scen_policy, y = diff, 
-                              fill = factor(group, names(colors)))) + 
-  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
-  geom_errorbar(aes(y = sum_diff, ymin = sum_diff, ymax = sum_diff, color = Units),
-                #color = "grey85", 
-                linetype = "longdash", linewidth = 0.8) +
-  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
-  facet_wrap(~ region, scales = "free") + 
-  theme_bw() + 
-  labs(x = "", y = "MtCO2e") + 
-  guides(fill = guide_legend(nrow = 1)) + 
-  geom_hline(yintercept = 0, linewidth = 0.75) +
-  theme(legend.position = "bottom",
-        legend.title = element_blank(),
-        strip.text = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        axis.text.x = element_text(size = 9, vjust = 0.5),
-        axis.text.y = element_text(size = 9)) + 
-  scale_fill_manual(values = colors) +
-  scale_color_manual(values = "red", labels = "Net Change in Emissions",
-                     guide = guide_legend(keywidth = 4 )) +
-  ggtitle("2030 GHG Emissions Difference; NoRus-Default (MtCO2e)")
-
-symmetrise_scale(ghg.diff.plot, "y")
+ghg.diff.luc.plot
 
 ggsave("figures/ghg_all_diff.png", 
-       plot = symmetrise_scale(ghg.diff.plot, "y"), 
+       plot = ghg.diff.luc.plot, 
        height = 6, width = 9)
 
 # Emissions no LUC Final -------------
 ghg_colors <- c( "FFI CO2" = "grey50", "CH4" = "purple3",
                 "N2O" = "dodgerblue4", "F-Gas" = "orange2")
 
-colors <- ghg_colors
+ghg.noLUC.diff.plot <- diff_plot(ghg_by_gas_diff %>% filter(group != "LUC CO2"), 
+                           colors = ghg_colors, 
+                           fill = "group", 
+                           ylab = "MtCO2e",
+                           sum_line_lab = "Net Change in Emissions",
+                           title = "2030 Difference in GHG Emissions; noRusGas-Default (EJ)") %>% 
+  symmetrise_scale("y")
 
-ghg_by_gas_diff_no_luc <- ghg_by_gas_diff %>% 
-  filter(group != "LUC CO2")
-
-sum_bars <- ghg_by_gas_diff_no_luc %>% 
-  filter(region %in% selected_regions,
-         year == 2030) %>% 
-  group_by(scen_policy, region) %>% 
-  summarise(sum_diff = sum(diff)) %>% 
-  ungroup
-
-plot_data <- ghg_by_gas_diff_no_luc %>% 
-  filter(region %in% selected_regions,
-         year == 2030) %>% 
-  left_join_error_no_match(sum_bars, by = join_by(scen_policy, region))
-
-ghg.noLUC.diff.plot <- ggplot(plot_data %>% filter(region %in% selected_regions,
-                                             year == 2030),
-                        # !subsector %in% c("coal", "gas", "refined liquids")), 
-                        aes(x = scen_policy, y = diff, 
-                            fill = factor(group, names(colors)))) + 
-  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
-  geom_errorbar(aes(y = sum_diff, ymin = sum_diff, ymax = sum_diff, color = Units),
-                #color = "grey85", 
-                linetype = "longdash", linewidth = 0.8) +
-  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
-  facet_wrap(~ region, scales = "free") + 
-  theme_bw() + 
-  labs(x = "", y = "MtCO2e") + 
-  guides(fill = guide_legend(nrow = 1)) + 
-  geom_hline(yintercept = 0, linewidth = 0.75) +
-  theme(legend.position = "bottom",
-        legend.title = element_blank(),
-        strip.text = element_text(size = 10),
-        axis.title.y = element_text(size = 10),
-        axis.text.x = element_text(size = 9, vjust = 0.5),
-        axis.text.y = element_text(size = 9)) + 
-  scale_fill_manual(values = colors) +
-  scale_color_manual(values = "red", labels = "Net Change in Emissions",
-                     guide = guide_legend(keywidth = 4 )) +
-  ggtitle("2030 GHG Emissions Difference; NoRus-Default (MtCO2e)")
-
-symmetrise_scale(ghg.noLUC.diff.plot, "y")
+ghg.noLUC.diff.plot
 
 ggsave("figures/ghg_noLUC_diff.png", 
-       plot = symmetrise_scale(ghg.noLUC.diff.plot, "y"), 
+       plot = ghg.noLUC.diff.plot, 
        height = 6, width = 9)
+
 # ===================================DRAFTS====================================
 # Gas production and trade ----
 gas.plot<-ggplot(gas.all %>% filter(region %in% selected_regions,
@@ -1124,7 +915,7 @@ low.carbon.elec.plot <-  ggplot(renew_in_elec_pct %>% filter(region %in% selecte
   ggtitle("Low-carbon power generation, as percent of total power generation")
 
 
-renewables.pct.elec.plot
+low.carbon.elec.plot
 
 
 
