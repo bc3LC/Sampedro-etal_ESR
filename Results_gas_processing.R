@@ -263,7 +263,7 @@ dataset = merge(dataset, read.csv('data/gas_pipelines_latlon.csv'), by = 'pipeli
 
 
 ####### internal charts dataset
-# pie chart data
+# barchart data
 gas.all.withpipelines = gas.trade.pipeline %>%
   # change pipelines' names
   dplyr::mutate(across('pipeline', \(x) stringr::str_replace(x, 'Afr_MidE', 'North Africa')),
@@ -274,7 +274,7 @@ gas.all.withpipelines = gas.trade.pipeline %>%
 
 gas.all.withpipelines = bind_rows(gas.all.withpipelines, gas.dom.prod, gas.trade.lng)  
   
-dat_pie = merge(gas.all.withpipelines %>% filter(region %in% selected_regions,
+dat_tmp = merge(gas.all.withpipelines %>% filter(region %in% selected_regions,
                                    year == selected_year,
                                    scenario  %in% c('CP_Default','CP_noRus')) %>%
                   dplyr::rename('production' = 'value',
@@ -286,34 +286,37 @@ dat_pie = merge(gas.all.withpipelines %>% filter(region %in% selected_regions,
                          'units_price' = 'Units') %>%
                   dplyr::select(-sector), by = c('scenario','region','year'))
 # difference between scenarios
-dat_pie = pivot_wider(dat_pie, names_from = 'scenario', values_from = c('price','production'))
-dat_pie = dat_pie %>%
+dat_tmp = pivot_wider(dat_tmp, names_from = 'scenario', values_from = c('price','production'))
+dat_tmp = dat_tmp %>%
   dplyr::group_by(region, year, sector, units_production, units_price) %>%
   dplyr::summarise('price' = 100 * (price_CP_noRus - price_CP_Default) / price_CP_noRus,
          'production' = production_CP_noRus - production_CP_Default)
 
-# add lat-lon
-dat_pie = merge(dat_pie, read.csv('data/regions_latlon.csv'), by = 'region')
-
 # compute total production
-dat_pie_sum = dat_pie %>%
+dat_barcharts_sum = dat_tmp %>%
   dplyr::group_by(region, year) %>%
   dplyr::summarise('total_production' = sum(production))
+
+# add lat-lon
+dat_barcharts = merge(dat_tmp, read.csv('data/regions_barcharts_latlon.csv'), by = 'region')
+
+# dat prices
+dat_prices = merge(dat_tmp, read.csv('data/regions_prices_latlon.csv'), by = 'region')
 
 # save all bar charts as png and list them in a variable
 if (!dir.exists("figures/gas_production_by_reg")){
   dir.create("figures/gas_production_by_reg")
 }
-for (reg in unique(dat_pie$region)) {
+for (reg in unique(dat_barcharts$region)) {
   pl_reg = ggplot() +
     # barchart
-    geom_bar(data = dat_pie |> filter(region == reg),
+    geom_bar(data = dat_barcharts |> filter(region == reg),
              aes(x = 0, y = production, fill = as.factor(sector)),
              stat = "identity", color = NA, width = 0.5,
              position = position_stack(reverse = TRUE)) +
     scale_fill_manual(values = colors_barcharts) +
     # total production
-    geom_errorbar(data = dat_pie_sum |> filter(region == reg),
+    geom_errorbar(data = dat_barcharts_sum |> filter(region == reg),
                   aes(x = 0, y = total_production, ymin = total_production, ymax = total_production, color = as.factor(year)),
                   linewidth = 1.4, linetype = "longdash", width = 0.5) +
     scale_color_manual(values = "red", labels = "Net Change in Output", name = '',
@@ -335,7 +338,7 @@ for (reg in unique(dat_pie$region)) {
     # erase legend
     guides(fill = FALSE, color = FALSE) +
     # fix OY axis for better comparisson
-    ylim(min(dat_pie$production), max(dat_pie$production))
+    ylim(min(dat_barcharts$production), max(dat_barcharts$production))
   ggsave(plot = pl_reg, file = paste0('figures/gas_production_by_reg/',reg,'.png'), width = 60, height = 80, units = 'mm')
 }
 list_gas.production = list(
@@ -346,7 +349,8 @@ list_gas.production = list(
   png::readPNG("figures/gas_production_by_reg/EU_SE.png"),
   png::readPNG("figures/gas_production_by_reg/UK+.png")
 )
-regions_latlon = read.csv('data/regions_latlon.csv')
+regions_barcharts_latlon = read.csv('data/regions_barcharts_latlon.csv')
+regions_prices_latlon = read.csv('data/regions_prices_latlon.csv')
 
 
 # plot
@@ -384,18 +388,29 @@ pl_main = ggplot() +
     pl_main <- pl_main +
       annotation_custom(
         grid::rasterGrob(list_gas.production[[i]]),
-        xmin = regions_latlon$lon[i] - 0.5 - img.width,
-        xmax = regions_latlon$lon[i] + 0.5 + img.width,
-        ymin = regions_latlon$lat[i] - 0.5 - img.height,
-        ymax = regions_latlon$lat[i] + 0.5 + img.height
+        xmin = regions_barcharts_latlon$lon[i] - 0.5 - img.width,
+        xmax = regions_barcharts_latlon$lon[i] + 0.5 + img.width,
+        ymin = regions_barcharts_latlon$lat[i] - 0.5 - img.height,
+        ymax = regions_barcharts_latlon$lat[i] + 0.5 + img.height
       )
   }
   
   # add price
+  for (i in seq_along(list_gas.production)) {
+    pl_main <- pl_main +
+      annotation_custom(
+        grid::rasterGrob(png::readPNG('figures/priceL22.png')),
+        xmin = regions_prices_latlon$lon[i] - 0.5 - 5,
+        xmax = regions_prices_latlon$lon[i] + 0.5 + 5,
+        ymin = regions_prices_latlon$lat[i] - 0.5 - 5,
+        ymax = regions_prices_latlon$lat[i] + 0.5 + 5
+      )
+  }
   pl_main = pl_main +
-  geom_text(data = dat_pie, aes(x=longitude+1.25, y=latitude-2.65, label = paste0(round(price, digits = 2),'%')), size=3) +
-  
+    geom_text(data = dat_prices, aes(x=longitude+1.5, y=latitude-0.25, label = paste0(round(price, digits = 2),'%')), size=3, angle = -15)
+
   # theme
+  pl_main = pl_main +
   theme_light() +
   theme(axis.title=element_blank(),
         axis.text=element_blank(),
@@ -411,14 +426,14 @@ blank_p <- plot_spacer() + theme_void()
   
 # barcharts legend
 leg_barcharts1 = get_legend(ggplot() +
-                              geom_bar(data = dat_pie |> filter(region == 'EU_SW'),
+                              geom_bar(data = dat_barcharts |> filter(region == 'EU_SW'),
                                        aes(x = 0, y = production, fill = as.factor(sector)),
                                        stat = "identity", color = NA, width = 0.5,
                                        position = position_stack(reverse = TRUE)) +
                               scale_fill_manual(values = colors_barcharts,
                                                 name = 'Sector production'))
 leg_barcharts2 = get_legend(ggplot() +
-                              geom_errorbar(data = dat_pie_sum |> filter(region == 'EU_SW'),
+                              geom_errorbar(data = dat_barcharts_sum |> filter(region == 'EU_SW'),
                                             aes(x = 0, y = total_production, ymin = total_production, ymax = total_production, color = as.factor(year)),
                                             linewidth = 1.4, linetype = "longdash", width = 0.5) +
                               scale_color_manual(values = "red", labels = "Net Change in output",
@@ -443,9 +458,18 @@ leg_pipelines = get_legend(ggplot() +
 leg_price = ggplot() +
   theme_void() + theme(panel.background = element_rect(fill = "white", colour = "white")) +
   coord_sf(xlim = c(-0.1, 0.1), ylim = c(-0.1, 0.1)) +
-  geom_text(aes(x = 0, y = 0.05, label = 'Price\ndifference'), size = 4) +
-  geom_text(aes(x = 0, y = -0.05, label = '$%'), size = 3.25)
-
+  geom_text(aes(x = 0, y = 0.05, label = 'Price\ndifference'), size = 4) 
+leg_price = leg_price +
+  annotation_custom(
+    grid::rasterGrob(png::readPNG('figures/priceL22.png')),
+    xmin = 0 - 0.075,
+    xmax = 0 + 0.075,
+    ymin = -0.05 - 0.075,
+    ymax = -0.05 + 0.075
+  )
+leg_price = leg_price +
+  geom_text(aes(x = 0.015, y = -0.055, label = '$%'), size = 3.25, angle = -15)
+leg_price
 
 # mix all features in one single figure
 fig1 = cowplot::ggdraw() +
@@ -454,7 +478,7 @@ fig1 = cowplot::ggdraw() +
   cowplot::draw_plot(plot_grid(leg_pipelines,blank_p,nrow=1), x = 0.29, y = 0.755, width = 0.03, height = 0.02) +
   cowplot::draw_plot(plot_grid(leg_barcharts1,blank_p,nrow=1), x = 0.12, y = 0.758, width = 0.03, height = 0.03) +
   cowplot::draw_plot(plot_grid(leg_barcharts2,blank_p,nrow=1), x = 0.128, y = 0.65, width = 0.00001, height = 0.00001) +
-  cowplot::draw_plot(plot_grid(leg_price,blank_p,nrow=1), x = 0.375, y = 0.705, width = 0.25, height = 0.2)
+  cowplot::draw_plot(plot_grid(leg_price,blank_p,nrow=1), x = 0.375, y = 0.705, width = 0.25, height = 0.2) 
   # # title
   # + cowplot::draw_plot_label(label = paste0("Gas imports and production in ",selected_year),
   #                          size = 20,
