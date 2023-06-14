@@ -40,6 +40,12 @@ QUERY_LIST <- listQueries(prj)
 GWP <- readr::read_csv("data/GWP_AR5.csv")
 gas_cons_sectors <- readr::read_csv("data/gas_cons_sectors.csv")
 # Filter data: years and regions ----
+region_rewrite <- tibble(region = c("EU_Central", "EU_Northeast", "EU_Northwest", 
+                           "EU_Southeast", "EU_Southwest", 
+                           "Lithuania", "Poland", "UK+"),
+                         region_rewrite = c("EU_Cent", "EU_NE", "EU_NW", 
+                                            "EU_SE", "EU_SW",
+                                            "EU_NE" , "EU_Cent", "UK+"))
 selected_regions<-c("EU_Cent", "EU_NE", "EU_NW", "EU_SE", "EU_SW",
                     "Lithuania" , "Poland", "UK+")
 
@@ -71,6 +77,177 @@ my_pal_ghg<-c("#999999","#d01c2a","deepskyblue1","#11d081")
 my_pal_ghg_luc<-c("#999999","#00931d", "#d01c2a","deepskyblue1","#CC79A7")
 
 #my_pal_ssp<-c("forestgreen","dodgerblue3","darkgoldenrod3","firebrick3","black")
+# =======================================================================
+# ===================================WATERFALL====================================
+# Data Processing -----
+# Gas Changes
+gas_change <- getQuery(prj, "inputs by sector") %>% 
+  filter(Units == "EJ",
+         sector == "regional natural gas",
+         input != "RUS-pipeline-limit",
+         year == final_year) %>% 
+  rename_filter_regions(region_rewrite) %>% 
+  rename_scen() %>% 
+  group_by(Units, scenario, input, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup %>% 
+  separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
+  pivot_wider(names_from = scen_gas) %>% 
+  replace_na(list(Default = 0, noRus = 0)) %>% 
+  mutate(diff = noRus - Default,
+         input = str_remove(input, "traded "),
+         input = str_replace(input, "pipeline gas", "pipeline"),
+         input = str_replace(input, "natural gas", "Gas production"),
+         input = str_replace(input, "RUS pipeline", "RUS gas loss"),
+         order = if_else(input == "RUS gas loss", 4, 1),
+         diff = if_else(input == "RUS gas loss", diff * -1, diff) )  
+
+order_1_sum <- gas_change %>% 
+  filter(order == 1) %>% 
+  group_by(Units, scen_policy, year) %>% 
+  summarise(diff = sum(diff)) %>% 
+  ungroup %>% 
+  mutate(order = 2,
+         input = "order_1_sum")
+
+PE_change <-  getQuery(prj,"primary energy consumption by region (avg fossil efficiency)") %>% 
+  filter(year == final_year,
+         fuel != "elect_td_en",
+         fuel != "gas pipeline") %>% 
+  mutate(fuel = stringr::str_remove(fuel, "^\\w{1} "),
+         fuel = case_when(
+           fuel %in% c("coal", "oil") ~ "Other fossil",
+           fuel %in% c("natural gas") ~ "gas",
+           fuel %in% c("biomass", "geothermal", "hydro", "nuclear", 
+                       "solar", "traditional biomass", "wind") ~ "Low-carbon")) %>% 
+  rename_filter_regions(region_rewrite) %>% 
+  rename_scen() %>% 
+  group_by(Units, scenario, fuel, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup
+
+other_fuel_change <- PE_change %>% 
+  filter(fuel != "gas") %>% 
+  separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
+  pivot_wider(names_from = scen_gas) %>% 
+  replace_na(list(Default = 0, noRus = 0)) %>% 
+  mutate(diff = noRus - Default,
+         order = 2) %>% 
+  rename(input = fuel) 
+
+order_2_sum <- bind_rows(order_1_sum, other_fuel_change) %>% 
+  filter(order == 2) %>% 
+  group_by(Units, scen_policy, year) %>% 
+  summarise(diff = sum(diff)) %>% 
+  ungroup %>% 
+  mutate(order = 3,
+         input = "order_2_sum")
+
+PE_total_diff <- PE_change %>% 
+  group_by(Units, scenario, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup %>% 
+  separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
+  pivot_wider(names_from = scen_gas) %>% 
+  replace_na(list(Default = 0, noRus = 0)) %>% 
+  mutate(diff = -1 *(noRus - Default),
+         order = 3,
+         input = "PE decrease") 
+
+full_waterfall_data <- bind_rows(gas_change, order_1_sum, 
+                                 other_fuel_change, order_2_sum,
+                                 PE_total_diff) %>% 
+  mutate(order = as.factor(order)) 
+
+PE_total_Default <- filter(PE_change, grepl("Default", scenario)) %>% 
+  group_by(Units, scenario, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup %>% 
+  separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
+  select(-scen_gas)
+
+full_waterfall_data_pct <- full_waterfall_data %>% 
+  left_join(PE_total_Default, by = join_by(Units, scen_policy, year)) %>% 
+  mutate(diff = diff / value)
+  
+# Plot ----
+# Full waterfall
+wfall_colors <- c("Gas production" = "dodgerblue4", "EUR pipeline" = "dodgerblue3", 
+                  "Afr_MidE pipeline" = "dodgerblue", "LNG" = "skyblue", 
+                  "order_1_sum" = "white",
+                  "Other fossil" = "darkgoldenrod4", "Low-carbon" = "goldenrod", 
+                  "order_2_sum" = "white",
+                  "PE decrease" = "grey50",
+                  "RUS gas loss" = "firebrick" )
+wfall_alpha <- c("Gas production" = 1, "EUR pipeline" = 1, "Afr_MidE pipeline" = 1, "LNG" = 1, 
+                 "order_1_sum" = 0,
+                 "Other fossil" = 1, "Low-carbon" = 1, 
+                 "order_2_sum" = 0,
+                 "PE decrease" = 1,
+                 "RUS gas loss" = 1)
+plot_waterfall <- ggplot(full_waterfall_data, 
+                         aes(x = order, y = diff, fill = factor(input, names(wfall_colors)),
+                             alpha = input)) +
+  geom_bar(stat = "identity", width = 0.8, position = position_stack(reverse = TRUE)) +
+  scale_fill_manual(values = wfall_colors,  
+                    guide = guide_legend(reverse = TRUE, title="RUS Gas Replacement"),
+                    breaks = c("Gas production", "EUR pipeline", "Afr_MidE pipeline", "LNG", 
+                               "Other fossil", "Low-carbon")) +
+  scale_alpha_manual(values = wfall_alpha, guide = "none") +
+  facet_wrap(~ scen_policy , scales = "free", ncol = 1, strip.position = "left") +
+  theme_bw() +
+  labs(x = "", y = "EJ (NoRus-Default)",
+       title = "2030 EU Russian Gas Replacement (Primary Energy)") +
+  scale_x_discrete(labels=c('Replacement Gas', 
+                            'Other Energy Sources',
+                            'PE Decrease',
+                            'Russian Gas Loss')) +
+  theme(strip.text = element_text(size = 12),
+        plot.title = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        axis.title.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 10),
+        panel.spacing = unit(2, "lines"))
+
+plot_waterfall
+
+ggsave("figures/waterfall_PE.png", plot = plot_waterfall,
+       width = 9.75, height = 7)
+
+plot_waterfall_pct <- ggplot(full_waterfall_data_pct, 
+                         aes(x = order, y = diff, fill = factor(input, names(wfall_colors)),
+                             alpha = input)) +
+  geom_bar(stat = "identity", width = 0.8, position = position_stack(reverse = TRUE)) +
+  scale_fill_manual(values = wfall_colors,  
+                    guide = guide_legend(reverse = TRUE, title="RUS Gas Replacement"),
+                    breaks = c("Gas production", "EUR pipeline", "Afr_MidE pipeline", "LNG", 
+                               "Other fossil", "Low-carbon")) +
+  scale_alpha_manual(values = wfall_alpha, guide = "none") +
+  facet_wrap(~ scen_policy , scales = "free", ncol = 1, strip.position = "left") +
+  theme_bw() +
+  labs(x = "", y = "% Change in PE (NoRus-Default)",
+       title = "2030 EU Russian Gas Replacement (Primary Energy)") +
+  scale_x_discrete(labels=c('Replacement Gas', 
+                            'Other Energy Sources',
+                            'PE Decrease',
+                            'Russian Gas Loss')) +
+  scale_y_continuous(labels = scales::percent) +
+  theme(strip.text = element_text(size = 12),
+        plot.title = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        axis.title.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 10),
+        panel.spacing = unit(2, "lines"))
+
+plot_waterfall_pct
+
+ggsave("figures/waterfall_PE_pct.png", plot = plot_waterfall_pct,
+       width = 9.75, height = 7)
+
 # =======================================================================
 # ===================================DATA PROCESSING====================================
 # Income -----------

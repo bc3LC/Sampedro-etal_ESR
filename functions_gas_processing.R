@@ -10,11 +10,11 @@ rename_scen<- function(df){
   
 }
 
-rename_regions <- function(df, regions){
+rename_filter_regions <- function(df, regions){
   df %>% 
-    left_join(regions %>% distinct(region, ab), by = "region") %>%
-    mutate(region = if_else(ab != "", ab, region)) %>%
-    select(-ab)
+    right_join(regions, by = join_by(region)) %>%
+    select(-region) %>% 
+    rename(region = region_rewrite)
 }
 
 symmetrise_scale <- function(p, axis = "x"){
