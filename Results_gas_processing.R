@@ -243,7 +243,7 @@ dataset = bind_rows(gas.trade.pipeline,dataset) %>% dplyr::filter(region %in% c(
                                                scenario %in% c('CP_Default','CP_noRus'))
 # difference between scenarios
 dataset = pivot_wider(dataset, names_from = scenario, values_from = value) %>%
-  dplyr::mutate('val_diff' = CP_Default - CP_noRus) %>%
+  dplyr::mutate('val_diff' = CP_noRus - CP_Default) %>%
 # whole imported gas in Europe
   dplyr::group_by(sector, pipeline, year, Units) %>%
   dplyr::summarise('total_imp' = sum(val_diff))
@@ -268,9 +268,9 @@ dat_pie = merge(gas.all %>% filter(region %in% selected_regions,
 # difference between scenarios
 dat_pie = pivot_wider(dat_pie, names_from = 'scenario', values_from = c('price','production'))
 dat_pie = dat_pie %>%
-  dplyr::group_by(region,year, sector,units_production, units_price) %>%
-  dplyr::summarise('price' = 100 * (price_CP_Default - price_CP_noRus) / price_CP_Default,
-         'production' = production_CP_Default - production_CP_noRus)
+  dplyr::group_by(region, year, sector, units_production, units_price) %>%
+  dplyr::summarise('price' = 100 * (price_CP_noRus - price_CP_Default) / price_CP_noRus,
+         'production' = production_CP_noRus - production_CP_Default)
 
 # add lat-lon
 dat_pie = merge(dat_pie, read.csv('data/regions_latlon.csv'), by = 'region')
@@ -319,11 +319,11 @@ for (reg in unique(dat_pie$region)) {
   ggsave(plot = pl_reg, file = paste0('figures/gas_production_by_reg/',reg,'.png'), width = 60, height = 80, units = 'mm')
 }
 list_gas.production = list(
-  png::readPNG("figures/gas_production_by_reg/EU_Cent.png"),
-  png::readPNG("figures/gas_production_by_reg/EU_NE.png"),
-  png::readPNG("figures/gas_production_by_reg/EU_NW.png"),
-  png::readPNG("figures/gas_production_by_reg/EU_SE.png"),
   png::readPNG("figures/gas_production_by_reg/EU_SW.png"),
+  png::readPNG("figures/gas_production_by_reg/EU_NW.png"),
+  png::readPNG("figures/gas_production_by_reg/EU_NE.png"),
+  png::readPNG("figures/gas_production_by_reg/EU_Cent.png"),
+  png::readPNG("figures/gas_production_by_reg/EU_SE.png"),
   png::readPNG("figures/gas_production_by_reg/UK+.png")
 )
 regions_latlon = read.csv('data/regions_latlon.csv')
@@ -357,11 +357,11 @@ pl_main = ggplot() +
   # and the boat
   pl_main <- pl_main +
   annotation_custom(
-    grid::rasterGrob(png::readPNG('figures/boat.png'), interpolate = TRUE),
-    xmin = -19 - 0.5 - 3,
-    xmax = -19 + 0.5 + 3,
-    ymin = 48.5 - 0.5 - 3.2,
-    ymax = 48.5 + 0.5 + 3.2
+    grid::rasterGrob(png::readPNG('figures/boat_lng.png'), interpolate = TRUE),
+    xmin = -19 - 0.5 - 5,
+    xmax = -19 + 0.5 + 5,
+    ymin = 48.75 - 0.5 - 7,
+    ymax = 48.75 + 0.5 + 7
   )
   
   # add bar chart - gas production
@@ -447,7 +447,7 @@ fig1 = cowplot::ggdraw() +
   #                          x = -0.245, y = 0.993)
 
 # save
-ggsave(plot = fig1, file = 'figures/fig1_map2.png', height = 205, width = 225, units = 'mm')
+ggsave(plot = fig1, file = 'figures/fig1_map.png', height = 205, width = 225, units = 'mm')
 
 
 #------------ OTHER FIGS--------------------
