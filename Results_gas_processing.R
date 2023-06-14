@@ -327,9 +327,10 @@ pl_main = ggplot() +
   geom_sf(data = world, aes(fill = ab)) +
   scale_fill_manual(values = colors_ab,
                     name = 'Regions') +
+  guides(fill = FALSE) +
   ggnewscale::new_scale_fill() +
   # crop
-  coord_sf(xlim = c(-23, 52), ylim = c(30, 73)) +
+  coord_sf(xlim = c(-30, 47), ylim = c(30, 73)) +
   # add pipelines
   geom_segment(data = dataset,
                aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end, linewidth = abs(total_imp), color = total_imp),
@@ -337,7 +338,7 @@ pl_main = ggplot() +
                alpha = 0.8) +
   scale_colour_gradient(low = "#b3de69", high = "#b73244",
                      name = 'Pipeline flow\ndifference [EJ]') +
-  guides(linewidth = FALSE)
+  guides(linewidth = FALSE, color = FALSE)
   # and the boat
   pl_main <- pl_main +
   annotation_custom(
@@ -364,11 +365,9 @@ pl_main = ggplot() +
   
   # add price
   pl_main = pl_main +
-  geom_text(data = dat_pie, aes(x=longitude, y=latitude-2, label = paste0(round(price, digits = 2),'%')), size=3)
+  geom_text(data = dat_pie, aes(x=longitude, y=latitude-2, label = paste0(round(price, digits = 2),'%')), size=3) +
   
   # theme
-    pl_main = pl_main +
-    
   theme_light() +
   theme(axis.title=element_blank(),
         axis.text=element_blank(),
@@ -380,20 +379,53 @@ pl_main = ggplot() +
   
   pl_main
 
-pie_legend = ggplot() + geom_scatterpie(data = dat_pie |> filter(ab == 'EU_NW'), aes(x=longitude, y=latitude, r=0.13*(price)),
-                               cols = c("imported pipeline gas","imported LNG","domestic natural gas"),
-                               color = NA) + coord_equal() + theme_void() + theme(legend.position = 'none')
+# legends
+# create a blank plot for legend alignment
+blank_p <- plot_spacer() + theme_void()
+  
+# barcharts legend
+leg_barcharts = get_legend(ggplot() +
+                             geom_bar(data = dat_pie |> filter(region == reg),
+                                      aes(x = sector, y = production, fill = as.factor(sector)),
+                                      stat = "identity", color = NA) +
+                             scale_fill_manual(values = c('#188965','#d5398b','#2f0099'), name = 'Sector'))
+# regions legend
+leg_regions = get_legend(ggplot() +
+                           # color map by regions
+                           geom_sf(data = world, aes(fill = ab)) +
+                           scale_fill_manual(values = colors_ab,
+                                             name = 'Regions'))
+# pipelines legend
+leg_pipelines = get_legend(ggplot() +
+                             geom_segment(data = dataset,
+                                          aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end, linewidth = abs(total_imp), color = total_imp),
+                                          arrow = arrow(length = unit(0.25, "cm")),
+                                          alpha = 0.8) +
+                             scale_colour_gradient(low = "#b3de69", high = "#b73244",
+                                                   name = 'Pipeline flow\ndifference [EJ]') +
+                             guides(linewidth = FALSE))
+# price legend
+leg_price = ggplot() +
+  theme_void() + theme(panel.background = element_rect(fill = "white", colour = "white")) +
+  coord_sf(xlim = c(-0.1, 0.1), ylim = c(-0.1, 0.1)) +
+  geom_text(aes(x = 0, y = 0.05, label = 'Price\ndifference'), size = 4) +
+  geom_text(aes(x = 0, y = -0.05, label = '$%'), size = 3.25)
 
+
+# mix all features in one single figure
 fig1 = cowplot::ggdraw() +
   theme(plot.background = element_rect(fill="white")) +
-  cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.8, height = 0.90) +
-  cowplot::draw_plot(pie_legend, x = 0.59, y = 0.925, width = 0.03, height = 0.03) +
-  cowplot::draw_plot_label(label = c("Gas price (pipeline)",
-                                     "Gas imports and production in 2025"),
-                           size = c(11.5,15),
-                           x = c(0.515,-0.15), y = c(0.993,0.993))
+  cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.90, height = 0.90) +
+  cowplot::draw_plot(plot_grid(leg_pipelines,blank_p,nrow=1), x = 0.09, y = 0.755, width = 0.03, height = 0.02) +
+  cowplot::draw_plot(plot_grid(leg_barcharts,blank_p,nrow=1), x = 0.26, y = 0.79, width = 0.03, height = 0.03) +
+  cowplot::draw_plot(plot_grid(leg_price,blank_p,nrow=1), x = 0.375, y = 0.705, width = 0.25, height = 0.2) #+
+  # cowplot::draw_plot_label(label = c("Gas price (pipeline)",
+  #                                    "Gas imports and production in 2025"),
+  #                          size = c(11.5,15),
+  #                          x = c(0.515,-0.15), y = c(0.993,0.993))
+fig1
 
-ggsave(plot = pl_main, file = 'figures/fig1_map.png', height = 175, width = 250, units = 'mm')
+ggsave(plot = fig1, file = 'figures/fig1_map.png', height = 205, width = 225, units = 'mm')
 
 
 #------------ OTHER FIGS--------------------
