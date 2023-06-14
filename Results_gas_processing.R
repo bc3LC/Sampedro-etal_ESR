@@ -31,7 +31,7 @@ QUERY_LIST <- listQueries(prj)
 # --------
 # Vectors to filter data: select years and desired regions for the figures
 selected_regions<-c("EU_Cent", "EU_NE", "EU_NW", "EU_SE", "EU_SW",
-                    "Eur_East", "Lithuania" , "Poland", "Ukraine")
+                    "Lithuania" , "Poland", "UK+")
 
 final_base_year<-2015
 final_year<-2030
@@ -255,12 +255,12 @@ dataset = merge(dataset, read.csv('data/gas_pipelines_latlon.csv'), by = 'pipeli
 ####### internal charts dataset
 # pie chart data
 dat_pie = merge(gas.all %>% filter(region %in% selected_regions,
-                                   year == 2025,
+                                   year == selected_year,
                                    scenario  %in% c('CP_Default','CP_noRus')) %>%
                   dplyr::rename('production' = 'value',
                          'units_production' = 'Units'),
                 gas.price %>% filter(region %in% selected_regions,
-                                     year == 2025,
+                                     year == selected_year,
                                      scenario %in% c('CP_Default','CP_noRus')) %>%
                   dplyr::rename('price' = 'value',
                          'units_price' = 'Units') %>%
@@ -306,8 +306,7 @@ list_gas.production = list(
   png::readPNG("figures/gas_production_by_reg/EU_NW.png"),
   png::readPNG("figures/gas_production_by_reg/EU_SE.png"),
   png::readPNG("figures/gas_production_by_reg/EU_SW.png"),
-  png::readPNG("figures/gas_production_by_reg/Eur_East.png"),
-  png::readPNG("figures/gas_production_by_reg/Ukraine.png")
+  png::readPNG("figures/gas_production_by_reg/UK+.png")
 )
 regions_latlon = read.csv('data/regions_latlon.csv')
 
@@ -317,9 +316,7 @@ colors_ab = c("EU_SW" = "#cc3333",
               "EU_NW" = "#41b6c4",
               "EU_Cent" = "#73af48",
               "EU_NE" = "#fd8d3c",
-              "Eur_East" = "#fccde5",
-              "Ukraine" = "#762a83")
-
+              "UK+" = "#762a83")
 
 # plot
 pl_main = ggplot() +
@@ -336,7 +333,7 @@ pl_main = ggplot() +
                aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end, linewidth = abs(total_imp), color = total_imp),
                arrow = arrow(length = unit(0.25, "cm")),
                alpha = 0.8) +
-  scale_colour_gradient(low = "#b3de69", high = "#b73244",
+  scale_colour_gradient(low = "#b73244", high = "#b3de69",
                      name = 'Pipeline flow\ndifference [EJ]') +
   guides(linewidth = FALSE, color = FALSE)
   # and the boat
@@ -377,8 +374,7 @@ pl_main = ggplot() +
         panel.background = element_rect(fill = "#c8e3f7",
                                         colour = "#c8e3f7"))
   
-  pl_main
-
+  
 # legends
 # create a blank plot for legend alignment
 blank_p <- plot_spacer() + theme_void()
@@ -388,7 +384,7 @@ leg_barcharts = get_legend(ggplot() +
                              geom_bar(data = dat_pie |> filter(region == reg),
                                       aes(x = sector, y = production, fill = as.factor(sector)),
                                       stat = "identity", color = NA) +
-                             scale_fill_manual(values = c('#188965','#d5398b','#2f0099'), name = 'Sector'))
+                             scale_fill_manual(values = c('#188965','#d5398b','#2f0099'), name = 'Sector production [EJ]'))
 # regions legend
 leg_regions = get_legend(ggplot() +
                            # color map by regions
@@ -401,7 +397,7 @@ leg_pipelines = get_legend(ggplot() +
                                           aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end, linewidth = abs(total_imp), color = total_imp),
                                           arrow = arrow(length = unit(0.25, "cm")),
                                           alpha = 0.8) +
-                             scale_colour_gradient(low = "#b3de69", high = "#b73244",
+                             scale_colour_gradient(low = "#b73244", high = "#b3de69",
                                                    name = 'Pipeline flow\ndifference [EJ]') +
                              guides(linewidth = FALSE))
 # price legend
@@ -418,13 +414,13 @@ fig1 = cowplot::ggdraw() +
   cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.90, height = 0.90) +
   cowplot::draw_plot(plot_grid(leg_pipelines,blank_p,nrow=1), x = 0.09, y = 0.755, width = 0.03, height = 0.02) +
   cowplot::draw_plot(plot_grid(leg_barcharts,blank_p,nrow=1), x = 0.26, y = 0.79, width = 0.03, height = 0.03) +
-  cowplot::draw_plot(plot_grid(leg_price,blank_p,nrow=1), x = 0.375, y = 0.705, width = 0.25, height = 0.2) #+
-  # cowplot::draw_plot_label(label = c("Gas price (pipeline)",
-  #                                    "Gas imports and production in 2025"),
-  #                          size = c(11.5,15),
-  #                          x = c(0.515,-0.15), y = c(0.993,0.993))
-fig1
+  cowplot::draw_plot(plot_grid(leg_price,blank_p,nrow=1), x = 0.375, y = 0.705, width = 0.25, height = 0.2)
+  # # title
+  # + cowplot::draw_plot_label(label = paste0("Gas imports and production in ",selected_year),
+  #                          size = 20,
+  #                          x = -0.245, y = 0.993)
 
+# save
 ggsave(plot = fig1, file = 'figures/fig1_map.png', height = 205, width = 225, units = 'mm')
 
 
