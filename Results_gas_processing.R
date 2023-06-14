@@ -451,9 +451,9 @@ leg_price = ggplot() +
 fig1 = cowplot::ggdraw() +
   theme(plot.background = element_rect(fill="white")) +
   cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.90, height = 0.90) +
-  cowplot::draw_plot(plot_grid(leg_pipelines,blank_p,nrow=1), x = 0.09, y = 0.755, width = 0.03, height = 0.02) +
-  cowplot::draw_plot(plot_grid(leg_barcharts1,blank_p,nrow=1), x = 0.26, y = 0.758, width = 0.03, height = 0.03) +
-  cowplot::draw_plot(plot_grid(leg_barcharts2,blank_p,nrow=1), x = 0.268, y = 0.65, width = 0.00001, height = 0.00001) +
+  cowplot::draw_plot(plot_grid(leg_pipelines,blank_p,nrow=1), x = 0.29, y = 0.755, width = 0.03, height = 0.02) +
+  cowplot::draw_plot(plot_grid(leg_barcharts1,blank_p,nrow=1), x = 0.12, y = 0.758, width = 0.03, height = 0.03) +
+  cowplot::draw_plot(plot_grid(leg_barcharts2,blank_p,nrow=1), x = 0.128, y = 0.65, width = 0.00001, height = 0.00001) +
   cowplot::draw_plot(plot_grid(leg_price,blank_p,nrow=1), x = 0.375, y = 0.705, width = 0.25, height = 0.2)
   # # title
   # + cowplot::draw_plot_label(label = paste0("Gas imports and production in ",selected_year),
