@@ -228,7 +228,7 @@ colors_regions = c("EU_SW" = "#cc3333",
                    "EU_NW" = "#41b6c4",
                    "EU_Cent" = "#73af48",
                    "EU_NE" = "#fd8d3c",
-                   "UK+" = "#fccde5")
+                   "British Islands" = "#fccde5")
 colors_barcharts = c("domestic natural gas" = '#188965',
                      "imported LNG" = '#ADD68A',
                      "imported pipeline gas\nfrom Europe" = '#49C5FA',
@@ -241,7 +241,8 @@ regions_plt = regions %>%
   dplyr::mutate(ISO3 = toupper(iso)) %>%
   dplyr::rename('region_full' = 'region') %>%
   dplyr::mutate('ab' = ifelse(ab == "", region_full, ab)) %>%
-  dplyr::filter(country_name != 'Greenland')
+  dplyr::filter(country_name != 'Greenland') %>%
+  dplyr::mutate(ab = ifelse(ab == 'UK+', 'British Islands', ab))
 # world visualization
 world <- rnaturalearth::ne_countries(scale = "small", returnclass = "sf") %>%
   dplyr::mutate('adm0_a3' = if_else(adm0_a3== 'ROU', 'ROM',adm0_a3))
@@ -377,16 +378,59 @@ pl_main = ggplot() +
   scale_colour_manual(values = c('pos' = "#b3de69",'neg' = "#b73244"),
                       labels = c('Gas supply increase','Gas supply decrease'),
                       name = 'Pipeline flow\ndifference [EJ]') +
-  guides(linewidth = FALSE, color = FALSE)
-  # and the boat
+  guides(linewidth = FALSE, color = FALSE) +
+  # text with the production change [EJ]
+  geom_text(data = dataset |> filter(pipeline == 'Afr_MidE'), aes(x=lon_start, y=lat_start+(lat_end-lat_start)/2, label = paste0(round(total_imp, digits = 2),'EJ')), size=3) +
+  geom_text(data = dataset |> filter(pipeline == 'EUR'), aes(x=lon_start, y=lat_start+(lat_end-lat_start)/2, label = paste0(round(total_imp, digits = 2),'EJ')), size=3) +
+  geom_text(data = dataset |> filter(pipeline == 'RUS'), aes(x=lon_start+(lon_end-lon_start)/2, y=lat_start+(lat_end-lat_start)/2, label = paste0(round(total_imp, digits = 2),'EJ')), size=3, angle = 19) +
+  geom_text(data = dataset |> filter(pipeline == 'LNG'), aes(x=lon_start+(lon_end-lon_start)/2, y=lat_start, label = paste0(round(total_imp, digits = 2),'EJ')), size=3)
+  # and the boat icon
   pl_main <- pl_main +
   annotation_custom(
     grid::rasterGrob(png::readPNG('figures/boat_lng.png'), interpolate = TRUE),
-    xmin = -19 - 0.5 - 5,
-    xmax = -19 + 0.5 + 5,
+    xmin = -24 - 0.5 - 5,
+    xmax = -24 + 0.5 + 5,
     ymin = 48.75 - 0.5 - 7,
     ymax = 48.75 + 0.5 + 7
   )
+  # and the gas plant icons
+  img.width = 3
+  img.height = 3
+    # EUR
+    dat = dataset |> dplyr::filter(pipeline == 'EUR')
+    pl_main <- pl_main +
+      annotation_custom(
+        grid::rasterGrob(png::readPNG('figures/gas_plant.png'), interpolate = TRUE),
+        xmin = dat$lon_start - 0.5 - img.width,
+        xmax = dat$lon_start + 0.5 + img.width,
+        ymin = dat$lat_start + 2 - 0.5 - img.height,
+        ymax = dat$lat_start + 2 + 0.5 + img.height
+      )
+    # RUS
+    dat = dataset |> dplyr::filter(pipeline == 'RUS')
+    pl_main <- pl_main +
+      annotation_custom(
+        grid::rasterGrob(png::readPNG('figures/gas_plant.png'), interpolate = TRUE),
+        xmin = dat$lon_start + 1 - 0.5 - img.width,
+        xmax = dat$lon_start + 1 + 0.5 + img.width,
+        ymin = dat$lat_start + 1.5 - 0.5 - img.height,
+        ymax = dat$lat_start + 1.5 + 0.5 + img.height
+      )
+    # North Africa
+    dat = dataset |> dplyr::filter(pipeline == 'Afr_MidE')
+    pl_main <- pl_main +
+      annotation_custom(
+        grid::rasterGrob(png::readPNG('figures/gas_plant.png'), interpolate = TRUE),
+        xmin = dat$lon_start - 0.5 - img.width,
+        xmax = dat$lon_start + 0.5 + img.width,
+        ymin = dat$lat_start - 1 - 0.5 - img.height,
+        ymax = dat$lat_start - 1 + 0.5 + img.height
+      )
+  
+  
+  
+  pl_main
+  
   
   # add bar chart - gas production
   img.width = 3
@@ -501,6 +545,7 @@ fig1 = cowplot::ggdraw() +
 
 # save
 ggsave(plot = fig1, file = 'figures/fig1_map.png', height = 205, width = 225, units = 'mm')
+# ggsave(plot = fig1, file = 'figures/fig1_map.png', height = 400, width = 439, units = 'mm')
 
 
 #------------ OTHER FIGS--------------------
