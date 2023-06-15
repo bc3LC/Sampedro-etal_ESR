@@ -359,7 +359,6 @@ regions_prices_latlon = read.csv('data/regions_prices_latlon.csv')
 
 
 # plot
-do_map = function() {
 pl_main = ggplot() +
   # color map by regions
   geom_sf(data = world, aes(fill = ab)) +
@@ -545,9 +544,9 @@ leg_price = leg_price +
 fig1 = cowplot::ggdraw() +
   theme(plot.background = element_rect(fill="white")) +
   cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.95, height = 0.90) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_regions,blank_p,nrow=1), x = -0.16, y = 0.3, width = 1, height = 1) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_barcharts2,blank_p,nrow=1), x = -0.025, y = 0.217, width = 1, height = 1) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_barcharts1,blank_p,nrow=1), x = -0, y = 0.312, width = 0.9, height = 1) +
+  cowplot::draw_plot(cowplot::plot_grid(leg_regions,blank_p,nrow=1), x = -0.005, y = 0.2985, width = 1, height = 1) +
+  cowplot::draw_plot(cowplot::plot_grid(leg_barcharts2,blank_p,nrow=1), x = -0.1355, y = 0.217, width = 1, height = 1) +
+  cowplot::draw_plot(cowplot::plot_grid(leg_barcharts1,blank_p,nrow=1), x = -0.1105, y = 0.312, width = 0.9, height = 1) +
   cowplot::draw_plot(cowplot::plot_grid(leg_pipelines,blank_p,nrow=1), x = 0.125, y = 0.34, width = 1, height = 1) +
   cowplot::draw_plot(cowplot::plot_grid(leg_price,blank_p,nrow=1), x = 0.307, y = 0.65, width = 0.275, height = 0.2)
   # # title
@@ -556,9 +555,8 @@ fig1 = cowplot::ggdraw() +
   #                          x = -0.245, y = 0.993)
 
 # save
-# ggsave(plot = fig1, file = 'figures/fig1_map.png', height = 205, width = 225, units = 'mm')
 ggsave(plot = fig1, file = 'figures/fig1_map.png', height = 400, width = 439, units = 'mm')
-}
+
 
 #------------ OTHER FIGS--------------------
 #-------------------------------------------
