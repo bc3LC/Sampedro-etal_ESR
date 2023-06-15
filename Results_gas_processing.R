@@ -369,11 +369,14 @@ pl_main = ggplot() +
   coord_sf(xlim = c(-30, 47), ylim = c(30, 73)) +
   # add pipelines
   geom_segment(data = dataset,
-               aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end, linewidth = abs(total_imp), color = total_imp),
+               aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end,
+                   linewidth = abs(total_imp),
+                   color = ifelse(total_imp >= 0, "pos", "neg")),
                arrow = arrow(length = unit(0.25, "cm")),
                alpha = 0.8) +
-  scale_colour_gradient(low = "#b73244", high = "#b3de69",
-                     name = 'Pipeline flow\ndifference [EJ]') +
+  scale_colour_manual(values = c('pos' = "#b3de69",'neg' = "#b73244"),
+                      labels = c('Gas supply increase','Gas supply decrease'),
+                      name = 'Pipeline flow\ndifference [EJ]') +
   guides(linewidth = FALSE, color = FALSE)
   # and the boat
   pl_main <- pl_main +
@@ -426,7 +429,7 @@ pl_main = ggplot() +
   
 # legends
 # create a blank plot for legend alignment
-blank_p <- plot_spacer() + theme_void()
+blank_p <- patchwork::plot_spacer() + theme_void()
   
 # barcharts legend
 leg_barcharts1 = ggpubr::get_legend(ggplot() +
@@ -435,7 +438,9 @@ leg_barcharts1 = ggpubr::get_legend(ggplot() +
                                        stat = "identity", color = NA, width = 0.5,
                                        position = position_stack(reverse = TRUE)) +
                               scale_fill_manual(values = colors_barcharts,
-                                                name = 'Sector production'))
+                                                name = 'Sector production') +
+                              theme(legend.key = element_rect(fill = "transparent", colour = "transparent")))
+
 leg_barcharts2 = ggpubr::get_legend(ggplot() +
                               geom_errorbar(data = dat_barcharts_sum |> filter(region == 'EU_SW'),
                                             aes(x = 0, y = total_production, ymin = total_production, ymax = total_production, color = as.factor(year)),
@@ -445,19 +450,25 @@ leg_barcharts2 = ggpubr::get_legend(ggplot() +
                               theme(legend.key = element_rect(fill = "transparent", colour = "transparent")))
 # regions legend
 leg_regions = ggpubr::get_legend(ggplot() +
-                           # color map by regions
-                           geom_sf(data = world, aes(fill = ab)) +
-                           scale_fill_manual(values = colors_regions,
-                                             name = 'Regions'))
+                                   geom_sf(data = world, aes(fill = ab)) +
+                                   scale_fill_manual(values = colors_regions,
+                                             name = 'Regions') +
+                                   theme(legend.key = element_rect(fill = "transparent", colour = "transparent")))
+
 # pipelines legend
 leg_pipelines = ggpubr::get_legend(ggplot() +
-                             geom_segment(data = dataset,
-                                          aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end, linewidth = abs(total_imp), color = total_imp),
-                                          arrow = arrow(length = unit(0.25, "cm")),
-                                          alpha = 0.8) +
-                             scale_colour_gradient(low = "#b73244", high = "#b3de69",
-                                                   name = 'Pipeline flow\ndifference [EJ]') +
-                             guides(linewidth = FALSE))
+                                     geom_segment(data = dataset,
+                                                  aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end,
+                                                      linewidth = abs(total_imp),
+                                                      color = ifelse(total_imp >= 0, "pos", "neg")),
+                                                  arrow = arrow(length = unit(0.25, "cm")),
+                                                  alpha = 0.8) +
+                                     scale_colour_manual(values = c('pos' = "#b3de69",'neg' = "#b73244"),
+                                                         labels = c('Gas supply increase','Gas supply decrease'),
+                                                         name = 'Pipeline flow\ndifference [EJ]') +
+                                     guides(linewidth = FALSE) +
+                                     theme(legend.key = element_rect(fill = "transparent", colour = "transparent")))
+
 # price legend
 leg_price = ggplot() +
   theme_void() + theme(panel.background = element_rect(fill = "white", colour = "white")) +
