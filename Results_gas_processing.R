@@ -727,18 +727,21 @@ cum_global_total_add_diff$sector <- factor(cum_global_total_add_diff$sector,
                                                  "traded RUS pipeline gas"))
 
 
-ggplot(data = filter(cum_global_total_add, year <= 2030) %>% mutate(year = as.factor(year)),
+ggplot(data = filter(cum_global_total_add, year <= 2030) %>% 
+         mutate(year = as.factor(year),
+                scenario = gsub("_Default", "", scenario)) %>%
+         filter(grepl("CP", scenario)),
        aes(x = year, y = cum_additions, fill = sector, group = sector))+
   geom_bar(position = position_stack(reverse = TRUE), stat = "identity")+
   stat_identity(yintercept=0, geom='hline', inherit.aes=TRUE, size = 1)+
-  facet_wrap(~scenario, nrow = 2, scales = "fixed")+
+  facet_wrap(~scenario, nrow = 1, scales = "fixed")+
   labs(title = "A) Additions", x = "", y = "MTPA") +
   theme_bw()+
   theme(axis.text = element_text(hjust = .5, vjust = 0.5, size = 12),
         strip.text = element_text(size = 12),
         title = element_text(size = 14),
         legend.title = element_blank())+
-  theme(legend.position = "right", text = element_text(size = 12)) +
+  theme(legend.position = "bottom", text = element_text(size = 12)) +
   scale_fill_manual(values = c(
     "traded LNG" = "gray70",
     "traded Afr_MidE pipeline gas" = "#E69F00",
@@ -816,18 +819,21 @@ cum_global_total_ret_diff$sector <- factor(cum_global_total_ret_diff$sector,
                                                  "traded RUS pipeline gas"))
 
 
-ggplot(data = filter(cum_global_total_ret, year <= 2030) %>% mutate(year = as.factor(year)),
+ggplot(data = filter(cum_global_total_ret, year <= 2030) %>% 
+         mutate(year = as.factor(year),
+                scenario = gsub("_Default", "", scenario)) %>%
+         filter(grepl("CP", scenario)),
        aes(x = year, y = cum_retirements, fill = sector, group = sector))+
   geom_bar(position = position_stack(reverse = TRUE), stat = "identity")+
   stat_identity(yintercept=0, geom='hline', inherit.aes=TRUE, size = 1)+
-  facet_wrap(~scenario, nrow = 2, scales = "fixed")+
+  facet_wrap(~scenario, nrow = 1, scales = "fixed")+
   labs(title = "B) Retirements", x = "", y = "MTPA") +
   theme_bw()+
   theme(axis.text = element_text(hjust = .5, vjust = 0.5, size = 12),
         strip.text = element_text(size = 12),
         title = element_text(size = 14),
         legend.title = element_blank())+
-  theme(legend.position = "right", text = element_text(size = 12)) +
+  theme(legend.position = "bottom", text = element_text(size = 12)) +
   scale_fill_manual(values = c(
     "traded LNG" = "gray70",
     "traded Afr_MidE pipeline gas" = "#E69F00",
