@@ -51,7 +51,8 @@ selected_regions<-c("EU_Cent", "EU_NE", "EU_NW", "EU_SE", "EU_SW",
 
 final_base_year<-2015
 final_year<-2030
-
+figure_years <- c(2025, 2030)
+waterfall_year <- 2025
 
 # Create a dataframe to consult with region names and countries within each region (only for consultation) 
 regions<-as_tibble(read.csv("data/iso_GCAM_regID.csv", skip = 6)) %>%
@@ -85,7 +86,7 @@ gas_change <- getQuery(prj, "inputs by sector") %>%
   filter(Units == "EJ",
          sector == "regional natural gas",
          input != "RUS-pipeline-limit",
-         year == final_year) %>% 
+         year %in% figure_years) %>% 
   rename_filter_regions(region_rewrite) %>% 
   rename_scen() %>% 
   group_by(Units, scenario, region, input, year) %>% 
@@ -111,7 +112,7 @@ order_1_sum <- gas_change %>%
          input = "order_1_sum")
 
 PE_change <-  getQuery(prj,"primary energy consumption by region (avg fossil efficiency)") %>% 
-  filter(year == final_year,
+  filter(year %in% figure_years,
          fuel != "elect_td_en",
          fuel != "gas pipeline") %>% 
   mutate(fuel = stringr::str_remove(fuel, "^\\w{1} "),
@@ -204,19 +205,27 @@ wfall_alpha <- c("Gas production" = 1, "EUR pipeline" = 1, "Afr_MidE pipeline" =
                  "PE decrease" = 1,
                  "RUS gas loss" = 1)
 
-plot_waterfall <- ggplot(full_waterfall_data_EU %>% filter(scen_policy == "CP", region == "ALL_EU"), 
+if (waterfall_year == 2025){
+  legend_breaks <- c("Gas production", "EUR pipeline", "Afr_MidE pipeline", "LNG")
+} else {
+  legend_breaks <- c("Gas production", "EUR pipeline", "Afr_MidE pipeline", "LNG", 
+                     "Other fossil", "Low-carbon")
+  
+}
+
+
+plot_waterfall <- ggplot(full_waterfall_data_EU %>% filter(scen_policy == "CP", region == "ALL_EU", abs(diff) > 0.01, year == waterfall_year), 
                          aes(x = order, y = diff, fill = factor(input, names(wfall_colors)),
                              alpha = input)) +
   geom_bar(stat = "identity", width = 0.8, position = position_stack(reverse = TRUE)) +
   scale_fill_manual(values = wfall_colors,  
                     guide = guide_legend(reverse = TRUE, title="RUS Gas Replacement"),
-                    breaks = c("Gas production", "EUR pipeline", "Afr_MidE pipeline", "LNG", 
-                               "Other fossil", "Low-carbon")) +
+                    breaks = legend_breaks) +
   scale_alpha_manual(values = wfall_alpha, guide = "none") +
   # facet_wrap(~ scen_policy , scales = "free", ncol = 1, strip.position = "left") +
   theme_bw() +
   labs(x = "", y = "EJ (NoRus-Default)",
-       title = "2030 EU Russian Gas Replacement (Primary Energy)") +
+       title = paste0(waterfall_year, " EU Russian Gas Replacement (Primary Energy)")) +
   scale_x_discrete(labels=c('Replacement Gas', 
                             'Other Energy Sources',
                             'PE Decrease',
@@ -235,69 +244,6 @@ plot_waterfall
 ggsave("figures/waterfall_PE.png", plot = plot_waterfall,
        width = 10, height = 6)
        # width = 9.75, height = 7)
-
-plot_waterfall_pct <- ggplot(full_waterfall_data_pct_EU, 
-                         aes(x = order, y = diff, fill = factor(input, names(wfall_colors)),
-                             alpha = input)) +
-  geom_bar(stat = "identity", width = 0.8, position = position_stack(reverse = TRUE)) +
-  scale_fill_manual(values = wfall_colors,  
-                    guide = guide_legend(reverse = TRUE, title="RUS Gas Replacement"),
-                    breaks = c("Gas production", "EUR pipeline", "Afr_MidE pipeline", "LNG", 
-                               "Other fossil", "Low-carbon")) +
-  scale_alpha_manual(values = wfall_alpha, guide = "none") +
-  facet_wrap(~ scen_policy , scales = "free", ncol = 1, strip.position = "left") +
-  theme_bw() +
-  labs(x = "", y = "% Change in PE (NoRus-Default)",
-       title = "2030 EU Russian Gas Replacement (Primary Energy)") +
-  scale_x_discrete(labels=c('Replacement Gas', 
-                            'Other Energy Sources',
-                            'PE Decrease',
-                            'Russian Gas Loss')) +
-  scale_y_continuous(labels = scales::percent) +
-  theme(strip.text = element_text(size = 12),
-        plot.title = element_text(size = 14),
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 12),
-        axis.title.y = element_text(size = 12),
-        axis.text.x = element_text(size = 12),
-        axis.text.y = element_text(size = 10),
-        panel.spacing = unit(2, "lines"))
-
-plot_waterfall_pct
-
-ggsave("figures/waterfall_PE_pct.png", plot = plot_waterfall_pct,
-       width = 9.75, height = 7)
-
-plot_waterfall_by_region <- ggplot(full_waterfall_data %>% filter(scen_policy == "CP", region != "ALL_EU"), 
-                         aes(x = order, y = diff, fill = factor(input, names(wfall_colors)),
-                             alpha = input)) +
-  geom_bar(stat = "identity", width = 0.8, position = position_stack(reverse = TRUE)) +
-  scale_fill_manual(values = wfall_colors,  
-                    guide = guide_legend(reverse = TRUE, title="RUS Gas Replacement"),
-                    breaks = c("Gas production", "EUR pipeline", "Afr_MidE pipeline", "LNG", 
-                               "Other fossil", "Low-carbon")) +
-  scale_alpha_manual(values = wfall_alpha, guide = "none") +
-  facet_wrap(~ region , scales = "free", ncol = 2) +
-  theme_bw() +
-  labs(x = "", y = "EJ (NoRus-Default)",
-       title = "2030 EU Russian Gas Replacement (Primary Energy)") +
-  scale_x_discrete(labels=c('Replacement Gas', 
-                            'Other Energy Sources',
-                            'PE Decrease',
-                            'Russian Gas Loss')) +
-  theme(strip.text = element_text(size = 12),
-        plot.title = element_text(size = 14),
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 12),
-        axis.title.y = element_text(size = 12),
-        axis.text.x = element_text(size = 11),
-        axis.text.y = element_text(size = 10),
-        panel.spacing = unit(2, "lines"))
-
-plot_waterfall_by_region
-
-ggsave("figures/waterfall_PE_by_region.png", plot = plot_waterfall_by_region,
-       width = 16, height = 9)
 
 # =======================================================================
 # ===================================DATA PROCESSING====================================
@@ -637,7 +583,7 @@ CP.elec.diff.grouped.plot <- diff_plot_CP(elec_gen_diff_grouped %>%  filter(scen
                                           fill = "fuel", 
                                           ylab = "% (of total Default elec gen in region)",
                                           sum_line_lab = "Net Change in Generation",
-                                          title = "2030 Difference in Electricity Generation; noRusGas-Default (%)",
+                                          title = "Change in Electricity Generation; noRusGas-Default (%)",
                                           x_aes = "region",
                                           y_aes = "diff_prop",
                                           pct = T) 
@@ -724,7 +670,8 @@ CP.pr.en.diff.plot <- diff_plot_CP(pr.energy_diff_grouped %>% filter(scen_policy
                              title = "2030 Difference in Primary Energy; noRusGas-Default (%)",
                              y_aes = "diff_prop",
                              pct = T,
-                             sym_scales = T)
+                             sym_scales = T,
+                             roundoff = 1000)
 
 CP.pr.en.diff.plot
 

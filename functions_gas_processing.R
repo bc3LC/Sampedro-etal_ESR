@@ -77,18 +77,19 @@ diff_plot <- function(df, colors, fill, title, ylab, sum_line_lab,
 
 diff_plot_CP <- function(df, colors, fill, title, ylab,  sum_line_lab = "", 
                          errorbar = T, pct = F, x_aes = "region", y_aes = "diff", 
-                         roundoff = 100, barsize = 0.8, sym_scales = T){
+                         roundoff = 100, barsize = 0.8, sym_scales = T,
+                         plot_years = figure_years){
   sum_bars <- df %>% 
     filter(region %in% selected_regions,
-           year == 2030) %>% 
-    group_by(scen_policy, region) %>% 
+           year %in% plot_years) %>% 
+    group_by(scen_policy, region, year) %>% 
     summarise(sum_diff = sum(get(y_aes))) %>% 
     ungroup
   
   plot_data <- df %>% 
     filter(region %in% selected_regions,
-           year == 2030) %>% 
-    left_join_error_no_match(sum_bars, by = join_by(scen_policy, region))
+           year %in% plot_years) %>% 
+    left_join_error_no_match(sum_bars, by = join_by(scen_policy, region, year))
   
   ax_lims <- plot_data %>% 
     group_by(region, year) %>% 
@@ -114,6 +115,12 @@ diff_plot_CP <- function(df, colors, fill, title, ylab,  sum_line_lab = "",
     scale_fill_manual(values = colors) +
     ggtitle(title)
   
+
+  if (length(plot_years) > 1){
+    plot <- plot +   
+      facet_wrap(~ year)
+  }
+  
   if (errorbar){
     plot <- plot +   
       geom_errorbar(aes(y = sum_diff, ymin = sum_diff, ymax = sum_diff, color = Units),
@@ -121,7 +128,7 @@ diff_plot_CP <- function(df, colors, fill, title, ylab,  sum_line_lab = "",
       scale_color_manual(values = "red", labels = sum_line_lab,
                          guide = guide_legend(keywidth = 4 )) 
   }
-
+  
 
   if (sym_scales){
     if (pct){
