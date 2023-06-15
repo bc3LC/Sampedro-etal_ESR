@@ -88,7 +88,7 @@ gas_change <- getQuery(prj, "inputs by sector") %>%
          year == final_year) %>% 
   rename_filter_regions(region_rewrite) %>% 
   rename_scen() %>% 
-  group_by(Units, scenario, input, year) %>% 
+  group_by(Units, scenario, region, input, year) %>% 
   summarise(value = sum(value)) %>% 
   ungroup %>% 
   separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
@@ -104,7 +104,7 @@ gas_change <- getQuery(prj, "inputs by sector") %>%
 
 order_1_sum <- gas_change %>% 
   filter(order == 1) %>% 
-  group_by(Units, scen_policy, year) %>% 
+  group_by(Units, scen_policy, region, year) %>% 
   summarise(diff = sum(diff)) %>% 
   ungroup %>% 
   mutate(order = 2,
@@ -122,7 +122,7 @@ PE_change <-  getQuery(prj,"primary energy consumption by region (avg fossil eff
                        "solar", "traditional biomass", "wind") ~ "Low-carbon")) %>% 
   rename_filter_regions(region_rewrite) %>% 
   rename_scen() %>% 
-  group_by(Units, scenario, fuel, year) %>% 
+  group_by(Units, scenario, region, fuel, year) %>% 
   summarise(value = sum(value)) %>% 
   ungroup
 
@@ -137,14 +137,14 @@ other_fuel_change <- PE_change %>%
 
 order_2_sum <- bind_rows(order_1_sum, other_fuel_change) %>% 
   filter(order == 2) %>% 
-  group_by(Units, scen_policy, year) %>% 
+  group_by(Units, scen_policy, region, year) %>% 
   summarise(diff = sum(diff)) %>% 
   ungroup %>% 
   mutate(order = 3,
          input = "order_2_sum")
 
 PE_total_diff <- PE_change %>% 
-  group_by(Units, scenario, year) %>% 
+  group_by(Units, scenario, region, year) %>% 
   summarise(value = sum(value)) %>% 
   ungroup %>% 
   separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
@@ -154,10 +154,20 @@ PE_total_diff <- PE_change %>%
          order = 3,
          input = "PE decrease") 
 
-full_waterfall_data <- bind_rows(gas_change, order_1_sum, 
+full_waterfall_data_by_region <- bind_rows(gas_change, order_1_sum, 
                                  other_fuel_change, order_2_sum,
                                  PE_total_diff) %>% 
   mutate(order = as.factor(order)) 
+
+full_waterfall_data_EU <- full_waterfall_data_by_region %>% 
+  group_by(Units, scen_policy, input, year, order) %>% 
+  summarise(diff = sum(diff)) %>% 
+  ungroup %>% 
+  mutate(region = "ALL_EU")
+
+readr::write_csv(bind_rows(full_waterfall_data_EU, full_waterfall_data_by_region) %>% 
+                   select(-Default, -noRus),
+                "data/waterfall_data.csv")
 
 PE_total_Default <- filter(PE_change, grepl("Default", scenario)) %>% 
   group_by(Units, scenario, year) %>% 
@@ -166,14 +176,22 @@ PE_total_Default <- filter(PE_change, grepl("Default", scenario)) %>%
   separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
   select(-scen_gas)
 
-full_waterfall_data_pct <- full_waterfall_data %>% 
+full_waterfall_data_pct_EU <- full_waterfall_data_EU %>% 
   left_join(PE_total_Default, by = join_by(Units, scen_policy, year)) %>% 
   mutate(diff = diff / value)
   
 # Plot ----
 # Full waterfall
+
 wfall_colors <- c("Gas production" = "dodgerblue4", "EUR pipeline" = "dodgerblue3", 
                   "Afr_MidE pipeline" = "dodgerblue", "LNG" = "skyblue", 
+                  "order_1_sum" = "white",
+                  "Other fossil" = "darkgoldenrod4", "Low-carbon" = "goldenrod", 
+                  "order_2_sum" = "white",
+                  "PE decrease" = "grey50",
+                  "RUS gas loss" = "firebrick" )
+wfall_colors <- c("Gas production" = "midnightblue", "EUR pipeline" = "dodgerblue3", 
+                  "Afr_MidE pipeline" = "deepskyblue", "LNG" = "lightblue1",
                   "order_1_sum" = "white",
                   "Other fossil" = "darkgoldenrod4", "Low-carbon" = "goldenrod", 
                   "order_2_sum" = "white",
@@ -185,7 +203,8 @@ wfall_alpha <- c("Gas production" = 1, "EUR pipeline" = 1, "Afr_MidE pipeline" =
                  "order_2_sum" = 0,
                  "PE decrease" = 1,
                  "RUS gas loss" = 1)
-plot_waterfall <- ggplot(full_waterfall_data %>% filter(scen_policy == "CP"), 
+
+plot_waterfall <- ggplot(full_waterfall_data_EU %>% filter(scen_policy == "CP", region == "ALL_EU"), 
                          aes(x = order, y = diff, fill = factor(input, names(wfall_colors)),
                              alpha = input)) +
   geom_bar(stat = "identity", width = 0.8, position = position_stack(reverse = TRUE)) +
@@ -217,7 +236,7 @@ ggsave("figures/waterfall_PE.png", plot = plot_waterfall,
        width = 10, height = 6)
        # width = 9.75, height = 7)
 
-plot_waterfall_pct <- ggplot(full_waterfall_data_pct, 
+plot_waterfall_pct <- ggplot(full_waterfall_data_pct_EU, 
                          aes(x = order, y = diff, fill = factor(input, names(wfall_colors)),
                              alpha = input)) +
   geom_bar(stat = "identity", width = 0.8, position = position_stack(reverse = TRUE)) +
@@ -248,6 +267,37 @@ plot_waterfall_pct
 
 ggsave("figures/waterfall_PE_pct.png", plot = plot_waterfall_pct,
        width = 9.75, height = 7)
+
+plot_waterfall_by_region <- ggplot(full_waterfall_data %>% filter(scen_policy == "CP", region != "ALL_EU"), 
+                         aes(x = order, y = diff, fill = factor(input, names(wfall_colors)),
+                             alpha = input)) +
+  geom_bar(stat = "identity", width = 0.8, position = position_stack(reverse = TRUE)) +
+  scale_fill_manual(values = wfall_colors,  
+                    guide = guide_legend(reverse = TRUE, title="RUS Gas Replacement"),
+                    breaks = c("Gas production", "EUR pipeline", "Afr_MidE pipeline", "LNG", 
+                               "Other fossil", "Low-carbon")) +
+  scale_alpha_manual(values = wfall_alpha, guide = "none") +
+  facet_wrap(~ region , scales = "free", ncol = 2) +
+  theme_bw() +
+  labs(x = "", y = "EJ (NoRus-Default)",
+       title = "2030 EU Russian Gas Replacement (Primary Energy)") +
+  scale_x_discrete(labels=c('Replacement Gas', 
+                            'Other Energy Sources',
+                            'PE Decrease',
+                            'Russian Gas Loss')) +
+  theme(strip.text = element_text(size = 12),
+        plot.title = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        axis.title.y = element_text(size = 12),
+        axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 10),
+        panel.spacing = unit(2, "lines"))
+
+plot_waterfall_by_region
+
+ggsave("figures/waterfall_PE_by_region.png", plot = plot_waterfall_by_region,
+       width = 16, height = 9)
 
 # =======================================================================
 # ===================================DATA PROCESSING====================================
@@ -578,8 +628,157 @@ ind_en_grouped <- ind_en %>%
 ind_en_diff_grouped <- df_process_diff(ind_en_grouped)
 
 # =======================================================================
+# ================================FIGURES CP Only=======================================
+# Electricity CP ONLY ------
+elec_colors_grouped <- c("gas" = "dodgerblue3", "other-fossil" = "grey20", "low-carbon" = "gold")
+
+CP.elec.diff.grouped.plot <- diff_plot_CP(elec_gen_diff_grouped %>%  filter(scen_policy == "CP"), 
+                                          colors = elec_colors_grouped, 
+                                          fill = "fuel", 
+                                          ylab = "% (of total Default elec gen in region)",
+                                          sum_line_lab = "Net Change in Generation",
+                                          title = "2030 Difference in Electricity Generation; noRusGas-Default (%)",
+                                          x_aes = "region",
+                                          y_aes = "diff_prop",
+                                          pct = T) 
+
+CP.elec.diff.grouped.plot
+
+ggsave("figures/elec_diff_CP.png", 
+       plot = CP.elec.diff.grouped.plot, 
+       height = 6, width = 9)
+
+# Waterfall Regions CP ONLY ------
+wfall_colors_regions <- c("Gas production" = "midnightblue", "EUR pipeline" = "dodgerblue3", 
+                  "Afr_MidE pipeline" = "deepskyblue", "LNG" = "lightblue1", 
+                  "Other fossil" = "darkgoldenrod4", "Low-carbon" = "goldenrod", 
+                  "PE decrease" = "grey50" )
+
+wfall.region.plot <- diff_plot_CP(full_waterfall_data_by_region %>%  filter(scen_policy == "CP", input %in% names(wfall_colors_regions)), 
+                                          colors = wfall_colors_regions, 
+                                          fill = "input", 
+                                          ylab = "EJ",
+                                          errorbar = F,
+                                          title = "2030 Replacement of Russian Gas (EJ)",
+                                          x_aes = "region",
+                                          y_aes = "diff",
+                                  barsize = 0.65) 
+
+wfall.region.plot
+
+ggsave("figures/wfall.region.plot.png", 
+       plot = wfall.region.plot, 
+       height = 6, width = 9)
+
+
+# Building CP ONLY ------
+CP.bld_grpd_colors <- c("gas" = "dodgerblue3","fossil" = "grey20",  "electricity" = "goldenrod", 
+                     "other" = "olivedrab")
+
+CP.bld.out.diff.plot <- diff_plot_CP(bld_out_diff_grouped %>% filter(scen_policy == "CP"), 
+                               colors = bld_grpd_colors, 
+                               fill = "fuel", 
+                               ylab = "% (of total Default output)",
+                               sum_line_lab = "Net Change in Output",
+                               title = "2030 Difference in Building Service Output; noRusGas-Default (%)",
+                               x_aes = "region",
+                               y_aes = "diff_prop",
+                               pct = T,
+                               sym_scales = F) 
+
+CP.bld.out.diff.plot
+
+ggsave("figures/bld_out_diff_CP.png", 
+       plot = CP.bld.out.diff.plot, 
+       height = 6, width = 9)
+
+# Industry CP ONLY ------
+ind_grpd_colors <- c("gas" = "dodgerblue3","other fossil" = "grey20",  "elec/H2" = "goldenrod", 
+                     "biomass" = "forestgreen", "district heat" = "brown4")
+
+CP.ind.en.diff.plot <- diff_plot_CP(ind_en_diff_grouped %>% filter(scen_policy == "CP"), 
+                              colors = ind_grpd_colors, 
+                              fill = "fuel", 
+                              ylab = "% (of total Default energy input)",
+                              sum_line_lab = "Net Change in Energy Input",
+                              title = "2030 Difference in Industry Energy Use; noRusGas-Default (%)",
+                              x_aes = "region",
+                              y_aes = "diff_prop",
+                              pct = T,
+                              roundoff = 1000)
+
+CP.ind.en.diff.plot
+
+ggsave("figures/ind_en_diff_CP.png", 
+       plot = CP.ind.en.diff.plot, 
+       height = 6, width = 9)
+
+# Primary Energy CP ONLY  -----
+pr.en_grpd_colors <- c("gas" = "dodgerblue3","other fossil" = "grey20",  "low-carbon" = "gold")
+
+CP.pr.en.diff.plot <- diff_plot_CP(pr.energy_diff_grouped %>% filter(scen_policy == "CP"), 
+                             colors = pr.en_grpd_colors, 
+                             fill = "fuel", 
+                             ylab = "% (of total Default energy)",
+                             sum_line_lab = "Net Change in Energy",
+                             title = "2030 Difference in Primary Energy; noRusGas-Default (%)",
+                             y_aes = "diff_prop",
+                             pct = T,
+                             sym_scales = T)
+
+CP.pr.en.diff.plot
+
+ggsave("figures/pe_diff_CP.png", 
+       plot = CP.pr.en.diff.plot, 
+       height = 6, width = 9)
+
+# Emissions with LUC CP ONLY  -------------
+ghg_colors_luc <- c("LUC CO2" = "green4", "FFI CO2" = "grey50", "CH4" = "purple3",
+                    "N2O" = "dodgerblue4", "F-Gas" = "orange2")
+
+CP.ghg.diff.luc.plot <- diff_plot_CP(ghg_by_gas_diff %>% filter(scen_policy == "CP"), 
+                               colors = ghg_colors_luc, 
+                               fill = "group", 
+                               ylab = "% (of total Default emissions)",
+                               sum_line_lab = "Net Change in Emissions",
+                               title = "2030 Difference in GHG Emissions; noRusGas-Default (%)",
+                               x_aes ="region",
+                               y_aes = "diff_prop",
+                               pct = T,
+                               sym_scales = T,
+                               roundoff = 1000) 
+
+CP.ghg.diff.luc.plot
+
+ggsave("figures/ghg_all_diff_CP.png", 
+       plot = CP.ghg.diff.luc.plot, 
+       height = 6, width = 9)
+
+# Emissions no LUC CP ONLY  -------------
+ghg_colors <- c( "FFI CO2" = "grey50", "CH4" = "purple3",
+                 "N2O" = "dodgerblue4", "F-Gas" = "orange2")
+
+CP.ghg.noLUC.diff.plot <- diff_plot_CP(ghg_by_gas_diff %>% filter(group != "LUC CO2", scen_policy == "CP"), 
+                                 colors = ghg_colors, 
+                                 fill = "group", 
+                                 ylab = "% (of total Default emissions)",
+                                 sum_line_lab = "Net Change in Emissions",
+                                 title = "2030 Difference in GHG Emissions; noRusGas-Default (%)",
+                                 x_aes = "region",
+                                 y_aes = "diff_prop",
+                                 pct = T,
+                                 sym_scales = T,
+                                 roundoff = 1000)
+
+CP.ghg.noLUC.diff.plot
+
+ggsave("figures/ghg_noLUC_diff_CP.png", 
+       plot = CP.ghg.noLUC.diff.plot, 
+       height = 6, width = 9)
+
+# =======================================================================
 # ================================FIGURES=======================================
-# Electricity Final------
+# Electricity ------
 elec_colors_grouped <- c("gas" = "dodgerblue3", "other-fossil" = "grey20", "low-carbon" = "gold")
 
 elec.diff.grouped.plot <- diff_plot(elec_gen_diff_grouped, 
@@ -598,7 +797,7 @@ ggsave("figures/elec_diff.png",
        plot = elec.diff.grouped.plot, 
        height = 6, width = 9)
 
-# Building Final------
+# Building ------
 bld_grpd_colors <- c("gas" = "dodgerblue3","fossil" = "grey20",  "electricity" = "goldenrod", 
                 "other" = "olivedrab")
 
@@ -618,7 +817,7 @@ ggsave("figures/bld_out_diff.png",
        plot = bld.out.diff.plot, 
        height = 6, width = 9)
 
-# Industry Final------
+# Industry ------
 ind_grpd_colors <- c("gas" = "dodgerblue3","other fossil" = "grey20",  "elec/H2" = "goldenrod", 
                      "biomass" = "forestgreen", "district heat" = "brown4")
 
@@ -638,7 +837,7 @@ ggsave("figures/ind_en_diff.png",
        plot = ind.out.diff.plot, 
        height = 6, width = 9)
 
-# Primary Energy Final -----
+# Primary Energy  -----
 pr.en_grpd_colors <- c("gas" = "dodgerblue3","other fossil" = "grey20",  "low-carbon" = "gold")
 
 pr.en.diff.plot <- diff_plot(pr.energy_diff_grouped, 
@@ -657,7 +856,7 @@ ggsave("figures/pe_diff.png",
        plot = pr.en.diff.plot, 
        height = 6, width = 9)
 
-# Emissions with LUC Final -------------
+# Emissions with LUC  -------------
 ghg_colors_luc <- c("LUC CO2" = "green4", "FFI CO2" = "grey50", "CH4" = "purple3",
                 "N2O" = "dodgerblue4", "F-Gas" = "orange2")
 
@@ -685,7 +884,7 @@ ggsave("figures/ghg_all_diff.png",
        plot = ghg.diff.luc.plot, 
        height = 6, width = 9)
 
-# Emissions no LUC Final -------------
+# Emissions no LUC  -------------
 ghg_colors <- c( "FFI CO2" = "grey50", "CH4" = "purple3",
                 "N2O" = "dodgerblue4", "F-Gas" = "orange2")
 

@@ -75,6 +75,72 @@ diff_plot <- function(df, colors, fill, title, ylab, sum_line_lab,
   return(plot)
 }
 
+diff_plot_CP <- function(df, colors, fill, title, ylab,  sum_line_lab = "", 
+                         errorbar = T, pct = F, x_aes = "region", y_aes = "diff", 
+                         roundoff = 100, barsize = 0.8, sym_scales = T){
+  sum_bars <- df %>% 
+    filter(region %in% selected_regions,
+           year == 2030) %>% 
+    group_by(scen_policy, region) %>% 
+    summarise(sum_diff = sum(get(y_aes))) %>% 
+    ungroup
+  
+  plot_data <- df %>% 
+    filter(region %in% selected_regions,
+           year == 2030) %>% 
+    left_join_error_no_match(sum_bars, by = join_by(scen_policy, region))
+  
+  ax_lims <- plot_data %>% 
+    group_by(region, year) %>% 
+    mutate(pos_sum = sum(pmax(0, get(y_aes))),
+           neg_sum = sum(pmin(0, get(y_aes)))) %>% 
+    ungroup() %>% 
+    summarise(diff_lim = ceiling(roundoff * max(pos_sum, abs(neg_sum))) / roundoff)
+
+  plot <- ggplot(plot_data, aes(.data[[x_aes]], y = .data[[y_aes]],
+                                fill = factor(get(fill), names(colors)))) +
+    geom_bar(stat = "identity", position = position_stack(reverse = TRUE), width = barsize) +    
+    theme_bw() +
+    labs(x = "", y = ylab) +
+    guides(fill = guide_legend(nrow = 1)) +
+    geom_hline(yintercept = 0,  linewidth = 0.75) +
+    theme(legend.position = "bottom",
+          legend.title = element_blank(),
+          legend.background = element_rect(fill = "grey85"),
+          strip.text = element_text(size = 10),
+          axis.title.y = element_text(size = 10),
+          axis.text.x = element_text(size = 9, vjust = 0.5),
+          axis.text.y = element_text(size = 9)) +
+    scale_fill_manual(values = colors) +
+    ggtitle(title)
+  
+  if (errorbar){
+    plot <- plot +   
+      geom_errorbar(aes(y = sum_diff, ymin = sum_diff, ymax = sum_diff, color = Units),
+                    linetype = "longdash", linewidth = 0.8) +
+      scale_color_manual(values = "red", labels = sum_line_lab,
+                         guide = guide_legend(keywidth = 4 )) 
+  }
+
+
+  if (sym_scales){
+    if (pct){
+      plot <- plot + scale_y_continuous(labels = scales::percent,
+                                        limits = c(-ax_lims$diff_lim, ax_lims$diff_lim)) 
+    } else {
+      plot <- plot + ylim(-ax_lims$diff_lim, ax_lims$diff_lim)
+    }
+  } else {
+    if (pct){
+      plot <- plot + scale_y_continuous(labels = scales::percent) 
+    }
+  }
+
+  
+  
+  return(plot)
+}
+
 df_process_diff <- function(df){
   df_diff <- df %>% 
     separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
