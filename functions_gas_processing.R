@@ -32,7 +32,8 @@ symmetrise_scale <- function(p, axis = "x"){
          "y" = p + geom_blank(data=dummy, aes(x=Inf, y=y), inherit.aes = FALSE))
 }
 
-diff_plot <- function(df, x_aes = "scen_policy", y_aes = "diff", colors, fill, title, ylab, sum_line_lab){
+diff_plot <- function(df, colors, fill, title, ylab, sum_line_lab, 
+                      pct = F, x_aes = "scen_policy", y_aes = "diff"){
   sum_bars <- df %>% 
     filter(region %in% selected_regions,
            year == 2030) %>% 
@@ -66,6 +67,10 @@ diff_plot <- function(df, x_aes = "scen_policy", y_aes = "diff", colors, fill, t
                        guide = guide_legend(keywidth = 4 )) +
     scale_fill_manual(values = colors) +
     ggtitle(title)
+  
+  if (pct){
+    plot <- plot + scale_y_continuous(labels = scales::percent)
+  }
 
   return(plot)
 }
@@ -79,4 +84,6 @@ df_process_diff <- function(df){
     mutate(total_Default = sum(Default)) %>% 
     ungroup %>% 
     mutate(diff_prop = diff / total_Default)
+  
+  return(df_diff)
 }
