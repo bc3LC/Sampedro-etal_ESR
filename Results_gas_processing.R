@@ -229,7 +229,11 @@ colors_regions = c("EU_SW" = "#cc3333",
                    "EU_Cent" = "#73af48",
                    "EU_NE" = "#fd8d3c",
                    "UK+" = "#fccde5")
-colors_barcharts = c('#188965','#49C5FA','#2f0099','#AD8AF3','#ADD68A')
+colors_barcharts = c("domestic natural gas" = '#188965',
+                     "imported LNG" = '#ADD68A',
+                     "imported pipeline gas\nfrom Europe" = '#49C5FA',
+                     "imported pipeline gas\nfrom North Africa" = '#2f0099',
+                     "imported pipeline gas\nfrom Russia" = '#AD8AF3')
 
 
 ####### regions dataset
@@ -278,19 +282,19 @@ dat_tmp = merge(gas.all.withpipelines %>% filter(region %in% selected_regions,
                                    year == selected_year,
                                    scenario  %in% c('CP_Default','CP_noRus')) %>%
                   dplyr::rename('production' = 'value',
-                         'units_production' = 'Units'),
+                                'units_production' = 'Units'),
                 gas.price %>% filter(region %in% selected_regions,
                                      year == selected_year,
                                      scenario %in% c('CP_Default','CP_noRus')) %>%
                   dplyr::rename('price' = 'value',
-                         'units_price' = 'Units') %>%
+                                'units_price' = 'Units') %>%
                   dplyr::select(-sector), by = c('scenario','region','year'))
 # difference between scenarios
 dat_tmp = pivot_wider(dat_tmp, names_from = 'scenario', values_from = c('price','production'))
 dat_tmp = dat_tmp %>%
   dplyr::group_by(region, year, sector, units_production, units_price) %>%
-  dplyr::summarise('price' = 100 * (price_CP_noRus - price_CP_Default) / price_CP_noRus,
-         'production' = production_CP_noRus - production_CP_Default)
+  dplyr::summarise('price' = 100 * (price_CP_noRus - price_CP_Default) / price_CP_Default,
+                   'production' = production_CP_noRus - production_CP_Default)
 
 # compute total production
 dat_barcharts_sum = dat_tmp %>%
@@ -425,14 +429,14 @@ pl_main = ggplot() +
 blank_p <- plot_spacer() + theme_void()
   
 # barcharts legend
-leg_barcharts1 = get_legend(ggplot() +
+leg_barcharts1 = ggpubr::get_legend(ggplot() +
                               geom_bar(data = dat_barcharts |> filter(region == 'EU_SW'),
                                        aes(x = 0, y = production, fill = as.factor(sector)),
                                        stat = "identity", color = NA, width = 0.5,
                                        position = position_stack(reverse = TRUE)) +
                               scale_fill_manual(values = colors_barcharts,
                                                 name = 'Sector production'))
-leg_barcharts2 = get_legend(ggplot() +
+leg_barcharts2 = ggpubr::get_legend(ggplot() +
                               geom_errorbar(data = dat_barcharts_sum |> filter(region == 'EU_SW'),
                                             aes(x = 0, y = total_production, ymin = total_production, ymax = total_production, color = as.factor(year)),
                                             linewidth = 1.4, linetype = "longdash", width = 0.5) +
@@ -440,13 +444,13 @@ leg_barcharts2 = get_legend(ggplot() +
                                                  guide = guide_legend(keywidth = 1.25, title = NULL)) +
                               theme(legend.key = element_rect(fill = "transparent", colour = "transparent")))
 # regions legend
-leg_regions = get_legend(ggplot() +
+leg_regions = ggpubr::get_legend(ggplot() +
                            # color map by regions
                            geom_sf(data = world, aes(fill = ab)) +
                            scale_fill_manual(values = colors_regions,
                                              name = 'Regions'))
 # pipelines legend
-leg_pipelines = get_legend(ggplot() +
+leg_pipelines = ggpubr::get_legend(ggplot() +
                              geom_segment(data = dataset,
                                           aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end, linewidth = abs(total_imp), color = total_imp),
                                           arrow = arrow(length = unit(0.25, "cm")),
@@ -469,16 +473,16 @@ leg_price = leg_price +
   )
 leg_price = leg_price +
   geom_text(aes(x = 0.015, y = -0.055, label = '$%'), size = 3.25, angle = -15)
-leg_price
+
 
 # mix all features in one single figure
 fig1 = cowplot::ggdraw() +
   theme(plot.background = element_rect(fill="white")) +
   cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.90, height = 0.90) +
-  cowplot::draw_plot(plot_grid(leg_pipelines,blank_p,nrow=1), x = 0.29, y = 0.755, width = 0.03, height = 0.02) +
-  cowplot::draw_plot(plot_grid(leg_barcharts1,blank_p,nrow=1), x = 0.12, y = 0.758, width = 0.03, height = 0.03) +
-  cowplot::draw_plot(plot_grid(leg_barcharts2,blank_p,nrow=1), x = 0.128, y = 0.65, width = 0.00001, height = 0.00001) +
-  cowplot::draw_plot(plot_grid(leg_price,blank_p,nrow=1), x = 0.375, y = 0.705, width = 0.25, height = 0.2) 
+  cowplot::draw_plot(cowplot::plot_grid(leg_pipelines,blank_p,nrow=1), x = 0.29, y = 0.755, width = 0.03, height = 0.02) +
+  cowplot::draw_plot(cowplot::plot_grid(leg_barcharts1,blank_p,nrow=1), x = 0.12, y = 0.758, width = 0.03, height = 0.03) +
+  cowplot::draw_plot(cowplot::plot_grid(leg_barcharts2,blank_p,nrow=1), x = 0.128, y = 0.65, width = 0.00001, height = 0.00001) +
+  cowplot::draw_plot(cowplot::plot_grid(leg_price,blank_p,nrow=1), x = 0.375, y = 0.705, width = 0.25, height = 0.2) 
   # # title
   # + cowplot::draw_plot_label(label = paste0("Gas imports and production in ",selected_year),
   #                          size = 20,
