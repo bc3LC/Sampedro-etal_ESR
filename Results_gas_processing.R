@@ -359,6 +359,7 @@ regions_prices_latlon = read.csv('data/regions_prices_latlon.csv')
 
 
 # plot
+do_map = function() {
 pl_main = ggplot() +
   # color map by regions
   geom_sf(data = world, aes(fill = ab)) +
@@ -371,19 +372,19 @@ pl_main = ggplot() +
   # add pipelines
   geom_segment(data = dataset,
                aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end,
-                   linewidth = abs(total_imp),
+                   linewidth = abs(total_imp)*2,
                    color = ifelse(total_imp >= 0, "pos", "neg")),
                arrow = arrow(length = unit(0.25, "cm")),
-               alpha = 0.8) +
+               alpha = 0.9) +
   scale_colour_manual(values = c('pos' = "#b3de69",'neg' = "#b73244"),
                       labels = c('Gas supply increase','Gas supply decrease'),
                       name = 'Pipeline flow\ndifference [EJ]') +
   guides(linewidth = FALSE, color = FALSE) +
   # text with the production change [EJ]
-  geom_text(data = dataset |> filter(pipeline == 'Afr_MidE'), aes(x=lon_start, y=lat_start+(lat_end-lat_start)/2, label = paste0(round(total_imp, digits = 2),'EJ')), size=3) +
-  geom_text(data = dataset |> filter(pipeline == 'EUR'), aes(x=lon_start, y=lat_start+(lat_end-lat_start)/2, label = paste0(round(total_imp, digits = 2),'EJ')), size=3) +
-  geom_text(data = dataset |> filter(pipeline == 'RUS'), aes(x=lon_start+(lon_end-lon_start)/2, y=lat_start+(lat_end-lat_start)/2, label = paste0(round(total_imp, digits = 2),'EJ')), size=3, angle = 19) +
-  geom_text(data = dataset |> filter(pipeline == 'LNG'), aes(x=lon_start+(lon_end-lon_start)/2, y=lat_start, label = paste0(round(total_imp, digits = 2),'EJ')), size=3)
+  geom_text(data = dataset |> filter(pipeline == 'Afr_MidE'), aes(x=lon_start, y=lat_start+(lat_end-lat_start)/2, label = paste0(round(total_imp, digits = 2),'EJ')), size=6) +
+  geom_text(data = dataset |> filter(pipeline == 'EUR'), aes(x=lon_start, y=lat_start+(lat_end-lat_start)/2, label = paste0(round(total_imp, digits = 2),'EJ')), size=6) +
+  geom_text(data = dataset |> filter(pipeline == 'RUS'), aes(x=lon_start+(lon_end-lon_start)/2, y=lat_start+(lat_end-lat_start)/2, label = paste0(round(total_imp, digits = 2),'EJ')), size=6, angle = 23) +
+  geom_text(data = dataset |> filter(pipeline == 'LNG'), aes(x=lon_start+(lon_end-lon_start)/2, y=lat_start, label = paste0(round(total_imp, digits = 2),'EJ')), size=6)
   # and the boat icon
   pl_main <- pl_main +
   annotation_custom(
@@ -427,14 +428,9 @@ pl_main = ggplot() +
         ymax = dat$lat_start - 1 + 0.5 + img.height
       )
   
-  
-  
-  pl_main
-  
-  
   # add bar chart - gas production
-  img.width = 3
-  img.height = 3
+  img.width = 3.5
+  img.height = 3.5
   for (i in seq_along(list_gas.production)) {
     pl_main <- pl_main +
       annotation_custom(
@@ -447,18 +443,20 @@ pl_main = ggplot() +
   }
   
   # add price
+  img.width = 4
+  img.height = 4
   for (i in seq_along(list_gas.production)) {
     pl_main <- pl_main +
       annotation_custom(
         grid::rasterGrob(png::readPNG('figures/priceL22.png')),
-        xmin = regions_prices_latlon$lon[i] - 0.5 - 5,
-        xmax = regions_prices_latlon$lon[i] + 0.5 + 5,
-        ymin = regions_prices_latlon$lat[i] - 0.5 - 5,
-        ymax = regions_prices_latlon$lat[i] + 0.5 + 5
+        xmin = regions_prices_latlon$lon[i] - 0.5 - img.width,
+        xmax = regions_prices_latlon$lon[i] + 0.5 + img.width,
+        ymin = regions_prices_latlon$lat[i] - 0.5 - img.height,
+        ymax = regions_prices_latlon$lat[i] + 0.5 + img.height
       )
   }
   pl_main = pl_main +
-    geom_text(data = dat_prices, aes(x=longitude+1.5, y=latitude-0.25, label = paste0(round(price, digits = 2),'%')), size=3, angle = -15)
+    geom_text(data = dat_prices, aes(x=longitude+1.25, y=latitude-0.15, label = paste0(round(price, digits = 2),'%')), size=5, angle = -15)
 
   # theme
   pl_main = pl_main +
@@ -483,21 +481,30 @@ leg_barcharts1 = ggpubr::get_legend(ggplot() +
                                        position = position_stack(reverse = TRUE)) +
                               scale_fill_manual(values = colors_barcharts,
                                                 name = 'Sector production') +
-                              theme(legend.key = element_rect(fill = "transparent", colour = "transparent")))
+                                theme(legend.key = element_rect(fill = "transparent", colour = "transparent"),
+                                      legend.title = element_text(size = 18),
+                                      legend.key.size = unit(1,'cm'),
+                                      legend.text = element_text(size = 13)))
 
 leg_barcharts2 = ggpubr::get_legend(ggplot() +
                               geom_errorbar(data = dat_barcharts_sum |> filter(region == 'EU_SW'),
                                             aes(x = 0, y = total_production, ymin = total_production, ymax = total_production, color = as.factor(year)),
                                             linewidth = 1.4, linetype = "longdash", width = 0.5) +
                               scale_color_manual(values = "red", labels = "Net Change in output",
-                                                 guide = guide_legend(keywidth = 1.25, title = NULL)) +
-                              theme(legend.key = element_rect(fill = "transparent", colour = "transparent")))
+                                                 guide = guide_legend(keywidth = 2.15, title = NULL)) +
+                                theme(legend.key = element_rect(fill = "transparent", colour = "transparent"),
+                                      legend.title = element_text(size = 18),
+                                      legend.key.size = unit(1.5,'cm'),
+                                      legend.text = element_text(size = 13)))
 # regions legend
 leg_regions = ggpubr::get_legend(ggplot() +
                                    geom_sf(data = world, aes(fill = ab)) +
                                    scale_fill_manual(values = colors_regions,
                                              name = 'Regions') +
-                                   theme(legend.key = element_rect(fill = "transparent", colour = "transparent")))
+                                   theme(legend.key = element_rect(fill = "transparent", colour = "transparent"),
+                                         legend.title = element_text(size = 18),
+                                         legend.key.size = unit(1,'cm'),
+                                         legend.text = element_text(size = 13)))
 
 # pipelines legend
 leg_pipelines = ggpubr::get_legend(ggplot() +
@@ -511,42 +518,47 @@ leg_pipelines = ggpubr::get_legend(ggplot() +
                                                          labels = c('Gas supply increase','Gas supply decrease'),
                                                          name = 'Pipeline flow\ndifference [EJ]') +
                                      guides(linewidth = FALSE) +
-                                     theme(legend.key = element_rect(fill = "transparent", colour = "transparent")))
+                                     theme(legend.key = element_rect(fill = "transparent", colour = "transparent"),
+                                           legend.title = element_text(size = 18),
+                                           legend.key.size = unit(1,'cm'),
+                                           legend.text = element_text(size = 13)))
 
 # price legend
 leg_price = ggplot() +
   theme_void() + theme(panel.background = element_rect(fill = "white", colour = "white")) +
-  coord_sf(xlim = c(-0.1, 0.1), ylim = c(-0.1, 0.1)) +
-  geom_text(aes(x = 0, y = 0.05, label = 'Price\ndifference'), size = 4) 
+  coord_sf(xlim = c(-0.25, 0.25), ylim = c(-0.1, 0.1)) +
+  geom_text(aes(x = -0.05, y = 0.05, label = 'Price difference'), size = 6.5)
 leg_price = leg_price +
   annotation_custom(
     grid::rasterGrob(png::readPNG('figures/priceL22.png')),
-    xmin = 0 - 0.075,
-    xmax = 0 + 0.075,
-    ymin = -0.05 - 0.075,
-    ymax = -0.05 + 0.075
+    xmin = 0 - 0.095,
+    xmax = 0 + 0.095,
+    ymin = -0.05 - 0.095,
+    ymax = -0.05 + 0.095
   )
 leg_price = leg_price +
-  geom_text(aes(x = 0.015, y = -0.055, label = '$%'), size = 3.25, angle = -15)
+  geom_text(aes(x = 0.02, y = -0.055, label = '$%'), size = 5, angle = -15) +
+  theme(legend.key = element_rect(fill = "transparent", colour = "transparent"))
 
 
 # mix all features in one single figure
 fig1 = cowplot::ggdraw() +
   theme(plot.background = element_rect(fill="white")) +
-  cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.90, height = 0.90) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_pipelines,blank_p,nrow=1), x = 0.29, y = 0.755, width = 0.03, height = 0.02) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_barcharts1,blank_p,nrow=1), x = 0.12, y = 0.758, width = 0.03, height = 0.03) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_barcharts2,blank_p,nrow=1), x = 0.128, y = 0.65, width = 0.00001, height = 0.00001) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_price,blank_p,nrow=1), x = 0.375, y = 0.705, width = 0.25, height = 0.2) 
+  cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.95, height = 0.90) +
+  cowplot::draw_plot(cowplot::plot_grid(leg_regions,blank_p,nrow=1), x = -0.16, y = 0.3, width = 1, height = 1) +
+  cowplot::draw_plot(cowplot::plot_grid(leg_barcharts2,blank_p,nrow=1), x = -0.025, y = 0.217, width = 1, height = 1) +
+  cowplot::draw_plot(cowplot::plot_grid(leg_barcharts1,blank_p,nrow=1), x = -0, y = 0.312, width = 0.9, height = 1) +
+  cowplot::draw_plot(cowplot::plot_grid(leg_pipelines,blank_p,nrow=1), x = 0.125, y = 0.34, width = 1, height = 1) +
+  cowplot::draw_plot(cowplot::plot_grid(leg_price,blank_p,nrow=1), x = 0.307, y = 0.65, width = 0.275, height = 0.2)
   # # title
   # + cowplot::draw_plot_label(label = paste0("Gas imports and production in ",selected_year),
   #                          size = 20,
   #                          x = -0.245, y = 0.993)
 
 # save
-ggsave(plot = fig1, file = 'figures/fig1_map.png', height = 205, width = 225, units = 'mm')
-# ggsave(plot = fig1, file = 'figures/fig1_map.png', height = 400, width = 439, units = 'mm')
-
+# ggsave(plot = fig1, file = 'figures/fig1_map.png', height = 205, width = 225, units = 'mm')
+ggsave(plot = fig1, file = 'figures/fig1_map.png', height = 400, width = 439, units = 'mm')
+}
 
 #------------ OTHER FIGS--------------------
 #-------------------------------------------
