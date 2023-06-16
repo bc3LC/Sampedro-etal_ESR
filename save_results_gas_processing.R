@@ -31,7 +31,7 @@ QUERY_LIST <- listQueries(prj)
 # --------
 # Vectors to filter data: select years and desired regions for the figures
 selected_regions<-c("EU_Cent", "EU_NE", "EU_NW", "EU_SE", "EU_SW",
-                    "Lithuania" , "Poland", "UK+")
+                    "Eur_East", "Lithuania" , "Poland", "Ukraine")
 
 final_base_year<-2015
 final_year<-2030
@@ -66,10 +66,10 @@ my_pal_scen<-c("#999999","#E69F00", "#56B4E9", "#009E73", "#CC79A7","darkgoldenr
 rename_scen<- function(df){
   
   df<- df %>%
-  mutate(scenario = if_else(scenario == "NewGasCalib_EUpre55CP", "CP_Default", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_noRusGas", "CP_NoRus", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario))
+    mutate(scenario = if_else(scenario == "NewGasCalib_EUpre55CP", "CP_Default", scenario),
+           scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
+           scenario = if_else(scenario == "NewGasCalib_EUpre55CP_noRusGas", "CP_NoRus", scenario),
+           scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario))
   
   return(invisible(df))
   
@@ -95,7 +95,7 @@ pop<- getQuery(prj,"Population by region") %>%
 # Primary Energy
 pr.energy<- getQuery(prj,"primary energy consumption by region (avg fossil efficiency)") %>%
   rename_scen()
-  
+
 #----------------------------------------
 # Gas
 gas.dom.prod<-getQuery(prj,"primary energy consumption by region (avg fossil efficiency)") %>%
@@ -109,15 +109,15 @@ gas.dom.prod<-getQuery(prj,"primary energy consumption by region (avg fossil eff
   dplyr::group_by(scenario, region, sector, year, Units) %>%
   dplyr::summarise(value = sum(value)) %>%
   dplyr::ungroup()
-  
+
 
 gas.trade.pipeline<- getQuery(prj,"primary energy consumption by region (avg fossil efficiency)") %>%
   rename_scen() %>%
   dplyr::filter(grepl("pipeline", fuel),
-         fuel != "gas pipeline") %>%
+                fuel != "gas pipeline") %>%
   dplyr::mutate(sector = "imported pipeline gas",
-         fuel = gsub("traded ", "", fuel),
-         fuel = gsub(" pipeline gas", "", fuel)) %>%
+                fuel = gsub("traded ", "", fuel),
+                fuel = gsub(" pipeline gas", "", fuel)) %>%
   dplyr::rename('pipeline' = 'fuel') %>%
   dplyr::left_join(regions %>% distinct(region, ab), by = "region") %>%
   dplyr::mutate(region = if_else(ab != "", ab, region)) %>%
@@ -222,27 +222,11 @@ tfe.fuel<-getQuery(prj,"final energy consumption by fuel") %>%
 
 selected_year = 2025
 
-# palettes
-colors_regions = c("EU_SW" = "#cc3333",
-                   "EU_SE" = "#b3de69",
-                   "EU_NW" = "#41b6c4",
-                   "EU_Cent" = "#73af48",
-                   "EU_NE" = "#fd8d3c",
-                   "British Islands" = "#fccde5")
-colors_barcharts = c("domestic natural gas" = '#188965',
-                     "imported LNG" = '#ADD68A',
-                     "imported pipeline gas\nfrom Europe" = '#49C5FA',
-                     "imported pipeline gas\nfrom North Africa" = '#2f0099',
-                     "imported pipeline gas\nfrom Russia" = '#AD8AF3')
-
-
 ####### regions dataset
 regions_plt = regions %>%
   dplyr::mutate(ISO3 = toupper(iso)) %>%
   dplyr::rename('region_full' = 'region') %>%
-  dplyr::mutate('ab' = ifelse(ab == "", region_full, ab)) %>%
-  dplyr::filter(country_name != 'Greenland') %>%
-  dplyr::mutate(ab = ifelse(ab == 'UK+', 'British Islands', ab))
+  dplyr::mutate('ab' = ifelse(ab == "", region_full, ab))
 # world visualization
 world <- rnaturalearth::ne_countries(scale = "small", returnclass = "sf") %>%
   dplyr::mutate('adm0_a3' = if_else(adm0_a3== 'ROU', 'ROM',adm0_a3))
@@ -250,320 +234,149 @@ world <- subset(world,!adm0_a3 %in% c("ATA","FJI"))
 world <- merge(world,regions_plt, by.x = "adm0_a3", by.y = "ISO3")
 
 ####### pipelines dataset
-# trade dataset (LNG and pipelines' gas)
-dataset = gas.trade.lng %>%
-  dplyr::mutate('pipeline' = 'LNG')
-dataset = bind_rows(gas.trade.pipeline,dataset) %>% dplyr::filter(region %in% c(selected_regions),
+# trade dataset
+dataset = gas.trade.pipeline %>% dplyr::filter(region %in% c(selected_regions),
                                                year == selected_year,
                                                scenario %in% c('CP_Default','CP_noRus'))
 # difference between scenarios
 dataset = pivot_wider(dataset, names_from = scenario, values_from = value) %>%
-  dplyr::mutate('val_diff' = CP_noRus - CP_Default) %>%
-# whole imported gas in Europe
+  dplyr::mutate('val_diff' = CP_Default - CP_noRus) %>%
+  # whole imported gas in Europe
   dplyr::group_by(sector, pipeline, year, Units) %>%
   dplyr::summarise('total_imp' = sum(val_diff))
 
 # add pipelines origin & end - latitude & longitude
-dataset = merge(dataset, read.csv('data/gas_pipelines_latlon.csv'), by = 'pipeline')
+dataset = merge(dataset, read.csv2('data/gas_pipelines_latlon.csv',header = TRUE,sep=','), by = 'pipeline')
 
 
 ####### internal charts dataset
-# barchart data
-gas.all.withpipelines = gas.trade.pipeline %>%
-  # change pipelines' names
-  dplyr::mutate(across('pipeline', \(x) stringr::str_replace(x, 'Afr_MidE', 'North Africa')),
-         across('pipeline', \(x) stringr::str_replace(x, 'RUS', 'Russia')),
-         across('pipeline', \(x) stringr::str_replace(x, 'EUR', 'Europe'))) %>%
-  dplyr::mutate('sector' = paste0(sector, '\nfrom ', pipeline)) %>%
-  dplyr::select(!"pipeline")
-
-gas.all.withpipelines = bind_rows(gas.all.withpipelines, gas.dom.prod, gas.trade.lng)  
-  
-dat_tmp = merge(gas.all.withpipelines %>% filter(region %in% selected_regions,
-                                   year == selected_year,
+# pie chart data
+dat_pie = merge(gas.all %>% filter(region %in% selected_regions,
+                                   year == 2025,
                                    scenario  %in% c('CP_Default','CP_noRus')) %>%
                   dplyr::rename('production' = 'value',
                                 'units_production' = 'Units'),
                 gas.price %>% filter(region %in% selected_regions,
-                                     year == selected_year,
+                                     year == 2025,
                                      scenario %in% c('CP_Default','CP_noRus')) %>%
                   dplyr::rename('price' = 'value',
                                 'units_price' = 'Units') %>%
                   dplyr::select(-sector), by = c('scenario','region','year'))
 # difference between scenarios
-dat_tmp = pivot_wider(dat_tmp, names_from = 'scenario', values_from = c('price','production'))
-dat_tmp = dat_tmp %>%
-  dplyr::group_by(region, year, sector, units_production, units_price) %>%
-  dplyr::summarise('price' = 100 * (price_CP_noRus - price_CP_Default) / price_CP_Default,
-                   'production' = production_CP_noRus - production_CP_Default)
-
-# compute total production
-dat_barcharts_sum = dat_tmp %>%
-  dplyr::group_by(region, year) %>%
-  dplyr::summarise('total_production' = sum(production))
-
-# add lat-lon
-dat_barcharts = merge(dat_tmp, read.csv('data/regions_barcharts_latlon.csv'), by = 'region')
-
-# dat prices
-dat_prices = merge(dat_tmp, read.csv('data/regions_prices_latlon.csv'), by = 'region')
+dat_pie = pivot_wider(dat_pie, names_from = 'scenario', values_from = c('price','production'))
+dat_pie = dat_pie %>%
+  dplyr::group_by(region,year, sector,units_production, units_price) %>%
+  dplyr::summarise('price' = price_CP_Default - price_CP_noRus,
+                   'production' = production_CP_Default - production_CP_noRus)
 
 # save all bar charts as png and list them in a variable
-min_height = dat_barcharts %>%
-  dplyr::group_by(region,year) %>%
-  dplyr::summarise('min' = sum(production[production<0])) %>%
-  pull(min) %>% min()
-max_height = dat_barcharts %>%
-  dplyr::group_by(region,year) %>%
-  dplyr::summarise('max' = sum(production[production>0])) %>%
-  pull(max) %>% max()
 if (!dir.exists("figures/gas_production_by_reg")){
   dir.create("figures/gas_production_by_reg")
 }
-for (reg in unique(dat_barcharts$region)) {
+for (reg in unique(dat_pie$region)) {
   pl_reg = ggplot() +
-    # barchart
-    geom_bar(data = dat_barcharts |> filter(region == reg),
-             aes(x = 0, y = production, fill = as.factor(sector)),
-             stat = "identity", color = NA, width = 0.5,
-             position = position_stack(reverse = TRUE)) +
-    scale_fill_manual(values = colors_barcharts) +
-    # total production
-    geom_errorbar(data = dat_barcharts_sum |> filter(region == reg),
-                  aes(x = 0, y = total_production, ymin = total_production, ymax = total_production, color = as.factor(year)),
-                  linewidth = 1.4, linetype = "longdash", width = 0.5) +
-    scale_color_manual(values = "red", labels = "Net Change in Output", name = '',
-                       guide = guide_legend(keywidth = 2 )) +
-    # horizontal line at y = 0
-    geom_hline(yintercept = 0, linewidth = 1.2) +
-    # theme
-    theme_minimal() + labs(x = '', y = '') +
+    geom_bar(data = dat_pie |> filter(region == reg),
+             aes(x = sector, y = production, fill = as.factor(sector)),
+             stat = "identity", color = NA,
+             # width = 0.2, position=position_dodge(width = 0.5)
+    ) +
+    scale_fill_manual(values = c('#188965','#d5398b','#2f0099')) +
+    theme_void() +
     theme(
-      panel.border = element_blank(),
-      panel.background = element_blank(),
-      plot.background = element_blank(),
+      panel.background = element_rect(fill='#E7E7D3'),
+      plot.background = element_rect(fill='#E7E7D3', color=NA),
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      axis.text.x = element_blank(),
-      axis.ticks.x = element_blank(),
-      axis.text.y = element_text(size = 20)
+      legend.background = element_rect(fill='#E7E7D3'),
+      legend.box.background = element_rect(fill='#E7E7D3')
     ) +
-    # erase legend
-    guides(fill = "none", color = "none") +
-    # fix OY axis for better comparison
-    ylim(min_height, max_height)
-  ggsave(plot = pl_reg, file = paste0('figures/gas_production_by_reg/',reg,'.png'), width = 60, height = 80, units = 'mm')
+    guides(fill = FALSE)
+  ggsave(plot = pl_reg, file = paste0('figures/gas_production_by_reg/',reg,'.png'))
 }
 list_gas.production = list(
-  png::readPNG("figures/gas_production_by_reg/EU_SW.png"),
-  png::readPNG("figures/gas_production_by_reg/EU_NW.png"),
-  png::readPNG("figures/gas_production_by_reg/EU_NE.png"),
-  png::readPNG("figures/gas_production_by_reg/EU_Cent.png"),
-  png::readPNG("figures/gas_production_by_reg/EU_SE.png"),
-  png::readPNG("figures/gas_production_by_reg/UK+.png")
+  readPNG("figures/gas_production_by_reg/EU_Cent.png"),
+  readPNG("figures/gas_production_by_reg/EU_NE.png"),
+  readPNG("figures/gas_production_by_reg/EU_NW.png"),
+  readPNG("figures/gas_production_by_reg/EU_SE.png"),
+  readPNG("figures/gas_production_by_reg/EU_SW.png"),
+  readPNG("figures/gas_production_by_reg/Eur_East.png"),
+  readPNG("figures/gas_production_by_reg/Ukraine.png")
 )
-regions_barcharts_latlon = read.csv('data/regions_barcharts_latlon.csv')
-regions_prices_latlon = read.csv('data/regions_prices_latlon.csv')
+regions_latlon = read.csv('data/regions_latlon.csv')
+
+# dat_pie = pivot_wider(dat_pie, names_from = sector, values_from = production)
+# dat_pie = dat_pie  %>%
+#   # set zeros the NA values
+#   dplyr::mutate('domestic natural gas' = replace_na(`domestic natural gas`, 0),
+#                 'imported LNG' = replace_na(`imported LNG`, 0),
+#                 'imported pipeline gas' = replace_na(`imported pipeline gas`, 0))
+
+# palettes
+colors_ab = c("EU_SW" = "#cc3333",
+              "EU_SE" = "#b3de69",
+              "EU_NW" = "#41b6c4",
+              "EU_Cent" = "#73af48",
+              "EU_NE" = "#fd8d3c",
+              "Eur_East" = "#fccde5",
+              "Ukraine" = "#762a83",
+              "no_ab" = "#d1dbdd")
 
 
 # plot
 pl_main = ggplot() +
   # color map by regions
   geom_sf(data = world, aes(fill = ab)) +
-  scale_fill_manual(values = colors_regions,
+  scale_fill_manual(values = colors_ab,
                     name = 'Regions') +
-  guides(fill = FALSE) +
   ggnewscale::new_scale_fill() +
   # crop
-  coord_sf(xlim = c(-30, 47), ylim = c(30, 73)) +
+  coord_sf(xlim = c(-23, 52), ylim = c(30, 73)) +
   # add pipelines
   geom_segment(data = dataset,
-               aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end,
-                   linewidth = abs(total_imp)*2,
-                   color = ifelse(total_imp >= 0, "pos", "neg")),
+               aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end, linewidth = abs(total_imp), color = total_imp),
                arrow = arrow(length = unit(0.25, "cm")),
-               alpha = 0.9) +
-  scale_colour_manual(values = c('pos' = "#b3de69",'neg' = "#b73244"),
-                      labels = c('Gas supply decrease','Gas supply increase'),
-                      name = 'Pipeline flow\ndifference [EJ]') +
-  guides(linewidth = FALSE, color = FALSE) +
-  # text with the production change [EJ]
-  geom_text(data = dataset |> filter(pipeline == 'Afr_MidE'), aes(x=lon_start, y=lat_start+(lat_end-lat_start)/2, label = paste0(round(total_imp, digits = 2),'EJ')), size=6) +
-  geom_text(data = dataset |> filter(pipeline == 'EUR'), aes(x=lon_start, y=lat_start+(lat_end-lat_start)/2, label = paste0(round(total_imp, digits = 2),'EJ')), size=6) +
-  geom_text(data = dataset |> filter(pipeline == 'RUS'), aes(x=lon_start+(lon_end-lon_start)/2, y=lat_start+(lat_end-lat_start)/2, label = paste0(round(total_imp, digits = 2),'EJ')), size=6, angle = 23) +
-  geom_text(data = dataset |> filter(pipeline == 'LNG'), aes(x=lon_start+(lon_end-lon_start)/2, y=lat_start, label = paste0(round(total_imp, digits = 2),'EJ')), size=6)
-  # and the boat icon
-  pl_main <- pl_main +
-  annotation_custom(
-    grid::rasterGrob(png::readPNG('figures/boat_lng.png'), interpolate = TRUE),
-    xmin = -24 - 0.5 - 5,
-    xmax = -24 + 0.5 + 5,
-    ymin = 48.75 - 0.5 - 7,
-    ymax = 48.75 + 0.5 + 7
-  )
-  # and the gas plant icons
-  img.width = 3
-  img.height = 3
-    # EUR
-    dat = dataset |> dplyr::filter(pipeline == 'EUR')
-    pl_main <- pl_main +
-      annotation_custom(
-        grid::rasterGrob(png::readPNG('figures/gas_plant.png'), interpolate = TRUE),
-        xmin = dat$lon_start - 0.5 - img.width,
-        xmax = dat$lon_start + 0.5 + img.width,
-        ymin = dat$lat_start + 2 - 0.5 - img.height,
-        ymax = dat$lat_start + 2 + 0.5 + img.height
-      )
-    # RUS
-    dat = dataset |> dplyr::filter(pipeline == 'RUS')
-    pl_main <- pl_main +
-      annotation_custom(
-        grid::rasterGrob(png::readPNG('figures/gas_plant.png'), interpolate = TRUE),
-        xmin = dat$lon_start + 1 - 0.5 - img.width,
-        xmax = dat$lon_start + 1 + 0.5 + img.width,
-        ymin = dat$lat_start + 1.5 - 0.5 - img.height,
-        ymax = dat$lat_start + 1.5 + 0.5 + img.height
-      )
-    # North Africa
-    dat = dataset |> dplyr::filter(pipeline == 'Afr_MidE')
-    pl_main <- pl_main +
-      annotation_custom(
-        grid::rasterGrob(png::readPNG('figures/gas_plant.png'), interpolate = TRUE),
-        xmin = dat$lon_start - 0.5 - img.width,
-        xmax = dat$lon_start + 0.5 + img.width,
-        ymin = dat$lat_start - 1.5 - 0.5 - img.height,
-        ymax = dat$lat_start - 1.5 + 0.5 + img.height
-      )
-  
-  # add bar chart - gas production
-  img.width = 3.5
-  img.height = 3.5
-  for (i in seq_along(list_gas.production)) {
-    pl_main <- pl_main +
-      annotation_custom(
-        grid::rasterGrob(list_gas.production[[i]]),
-        xmin = regions_barcharts_latlon$lon[i] - 0.5 - img.width,
-        xmax = regions_barcharts_latlon$lon[i] + 0.5 + img.width,
-        ymin = regions_barcharts_latlon$lat[i] - 0.5 - img.height,
-        ymax = regions_barcharts_latlon$lat[i] + 0.5 + img.height
-      )
-  }
-  
-  # add price
-  img.width = 4
-  img.height = 4
-  for (i in seq_along(list_gas.production)) {
-    pl_main <- pl_main +
-      annotation_custom(
-        grid::rasterGrob(png::readPNG('figures/priceL22.png')),
-        xmin = regions_prices_latlon$lon[i] - 0.5 - img.width,
-        xmax = regions_prices_latlon$lon[i] + 0.5 + img.width,
-        ymin = regions_prices_latlon$lat[i] - 0.5 - img.height,
-        ymax = regions_prices_latlon$lat[i] + 0.5 + img.height
-      )
-  }
-  pl_main = pl_main +
-    geom_text(data = dat_prices, aes(x=longitude+1.25, y=latitude-0.15, label = paste0(round(price, digits = 2),'%')), size=5, angle = -15)
+               alpha = 0.8) +
+  scale_colour_gradient(low = "#b3de69", high = "#b73244",
+                        name = 'Pipeline flow [EJ]') +
+  guides(linewidth = FALSE)
 
-  # theme
-  pl_main = pl_main +
-  theme_light() +
+# add bar chart - gas production
+img.width = 1.5
+img.height = 1.5
+for (i in seq_along(list_gas.production)) {
+  pl_main <- pl_main +
+    annotation_custom(
+      rasterGrob(list_gas.production[[i]], interpolate = TRUE),
+      xmin = regions_latlon$lon[i] - 0.5 - img.width,
+      xmax = regions_latlon$lon[i] + 0.5 + img.width,
+      ymin = regions_latlon$lat[i] - 0.5 - img.height,
+      ymax = regions_latlon$lat[i] + 0.5 + img.height
+    )
+}
+
+pl_main
+
+# geom_text(data = dat_pie, aes(x=longitude, y=latitude, label = round(price, digits = 2))) +
+# theme
+theme_light() +
   theme(axis.title=element_blank(),
         axis.text=element_blank(),
-        axis.ticks=element_blank(),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        panel.background = element_rect(fill = "#c8e3f7",
-                                        colour = "#c8e3f7"))
-  
-# legends
-# create a blank plot for legend alignment
-blank_p <- patchwork::plot_spacer() + theme_void()
-  
-# barcharts legend
-leg_barcharts1 = ggpubr::get_legend(ggplot() +
-                              geom_bar(data = dat_barcharts |> filter(region == 'EU_SW'),
-                                       aes(x = 0, y = production, fill = as.factor(sector)),
-                                       stat = "identity", color = NA, width = 0.5,
-                                       position = position_stack(reverse = TRUE)) +
-                              scale_fill_manual(values = colors_barcharts,
-                                                name = 'Sector production') +
-                                theme(legend.key = element_rect(fill = "transparent", colour = "transparent"),
-                                      legend.title = element_text(size = 18),
-                                      legend.key.size = unit(1,'cm'),
-                                      legend.text = element_text(size = 13)))
+        axis.ticks=element_blank())
 
-leg_barcharts2 = ggpubr::get_legend(ggplot() +
-                              geom_errorbar(data = dat_barcharts_sum |> filter(region == 'EU_SW'),
-                                            aes(x = 0, y = total_production, ymin = total_production, ymax = total_production, color = as.factor(year)),
-                                            linewidth = 1.4, linetype = "longdash", width = 0.5) +
-                              scale_color_manual(values = "red", labels = "Net Change in output",
-                                                 guide = guide_legend(keywidth = 2.15, title = NULL)) +
-                                theme(legend.key = element_rect(fill = "transparent", colour = "transparent"),
-                                      legend.title = element_text(size = 18),
-                                      legend.key.size = unit(1.5,'cm'),
-                                      legend.text = element_text(size = 13)))
-# regions legend
-leg_regions = ggpubr::get_legend(ggplot() +
-                                   geom_sf(data = world, aes(fill = ab)) +
-                                   scale_fill_manual(values = colors_regions,
-                                             name = 'Regions') +
-                                   theme(legend.key = element_rect(fill = "transparent", colour = "transparent"),
-                                         legend.title = element_text(size = 18),
-                                         legend.key.size = unit(1,'cm'),
-                                         legend.text = element_text(size = 13)))
+pie_legend = ggplot() + geom_scatterpie(data = dat_pie |> filter(ab == 'EU_NW'), aes(x=longitude, y=latitude, r=0.13*(price)),
+                                        cols = c("imported pipeline gas","imported LNG","domestic natural gas"),
+                                        color = NA) + coord_equal() + theme_void() + theme(legend.position = 'none')
 
-# pipelines legend
-leg_pipelines = ggpubr::get_legend(ggplot() +
-                                     geom_segment(data = dataset,
-                                                  aes(x = lon_start, y = lat_start, xend = lon_end, yend = lat_end,
-                                                      linewidth = abs(total_imp),
-                                                      color = ifelse(total_imp >= 0, "pos", "neg")),
-                                                  arrow = arrow(length = unit(0.25, "cm")),
-                                                  alpha = 0.8) +
-                                     scale_colour_manual(values = c('pos' = "#b3de69",'neg' = "#b73244"),
-                                                         labels = c('Gas supply decrease','Gas supply increase'),
-                                                         name = 'Pipeline flow\ndifference [EJ]') +
-                                     guides(linewidth = FALSE) +
-                                     theme(legend.key = element_rect(fill = "transparent", colour = "transparent"),
-                                           legend.title = element_text(size = 18),
-                                           legend.key.size = unit(1,'cm'),
-                                           legend.text = element_text(size = 13)))
-
-# price legend
-leg_price = ggplot() +
-  theme_void() + theme(panel.background = element_rect(fill = "white", colour = "white")) +
-  coord_sf(xlim = c(-0.25, 0.25), ylim = c(-0.1, 0.1)) +
-  geom_text(aes(x = -0.05, y = 0.05, label = 'Price difference'), size = 6.5)
-leg_price = leg_price +
-  annotation_custom(
-    grid::rasterGrob(png::readPNG('figures/priceL22.png')),
-    xmin = 0 - 0.095,
-    xmax = 0 + 0.095,
-    ymin = -0.05 - 0.095,
-    ymax = -0.05 + 0.095
-  )
-leg_price = leg_price +
-  geom_text(aes(x = 0.02, y = -0.055, label = '$%'), size = 5, angle = -15) +
-  theme(legend.key = element_rect(fill = "transparent", colour = "transparent"))
-
-
-# mix all features in one single figure
 fig1 = cowplot::ggdraw() +
   theme(plot.background = element_rect(fill="white")) +
-  cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.95, height = 0.90) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_regions,blank_p,nrow=1), x = -0.005, y = 0.2985, width = 1, height = 1) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_barcharts2,blank_p,nrow=1), x = -0.1355, y = 0.217, width = 1, height = 1) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_barcharts1,blank_p,nrow=1), x = -0.1105, y = 0.312, width = 0.9, height = 1) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_pipelines,blank_p,nrow=1), x = 0.125, y = 0.34, width = 1, height = 1) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_price,blank_p,nrow=1), x = 0.307, y = 0.65, width = 0.275, height = 0.2)
-  # # title
-  # + cowplot::draw_plot_label(label = paste0("Gas imports and production in ",selected_year),
-  #                          size = 20,
-  #                          x = -0.245, y = 0.993)
+  cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.8, height = 0.90) +
+  cowplot::draw_plot(pie_legend, x = 0.59, y = 0.925, width = 0.03, height = 0.03) +
+  cowplot::draw_plot_label(label = c("Gas price (pipeline)",
+                                     "Gas imports and production in 2025"),
+                           size = c(11.5,15),
+                           x = c(0.515,-0.15), y = c(0.993,0.993))
 
-# save
-ggsave(plot = fig1, file = paste0('figures/map_',selected_year,'.png'), height = 400, width = 439, units = 'mm')
+ggsave(plot = pl_main, file = 'figures/fig1_map.png', height = 175, width = 250, units = 'mm')
 
 
 #------------ OTHER FIGS--------------------
@@ -573,8 +386,8 @@ ggsave(plot = fig1, file = paste0('figures/map_',selected_year,'.png'), height =
 
 # Gas production and trade
 gas.plot<-ggplot(gas.all %>% filter(region %in% selected_regions,
-                          year <= final_year,
-                          year >= final_base_year), aes(x = as.numeric(year), y = value, color = scenario)) + 
+                                    year <= final_year,
+                                    year >= final_base_year), aes(x = as.numeric(year), y = value, color = scenario)) + 
   geom_point() + 
   geom_line() + 
   facet_grid(sector ~ region, scales = "free") + 
@@ -597,8 +410,8 @@ ggsave("figures/gas_prod_ImpPipe_ImpLNG.tiff", gas.plot, "tiff", dpi = 200)
 
 # Gas pipeline origin
 gas.pipelines.plot<-ggplot(gas.trade.pipeline %>% filter(region %in% selected_regions,
-                          year <= final_year,
-                          year >= final_base_year), aes(x = as.numeric(year), y = value, color = scenario)) + 
+                                                         year <= final_year,
+                                                         year >= final_base_year), aes(x = as.numeric(year), y = value, color = scenario)) + 
   geom_point() + 
   geom_line() + 
   facet_grid(pipeline ~ region, scales = "free") + 
@@ -621,8 +434,8 @@ ggsave("figures/gas_ImpPipe_byPipe.tiff", gas.pipelines.plot, "tiff", dpi = 200)
 
 # Gas pipeline
 price.pipeline<-ggplot(gas.price %>% filter(region %in% selected_regions,
-                                    year <= final_year,
-                                    year >= final_base_year), aes(x = as.numeric(year), y = value, color = scenario)) + 
+                                            year <= final_year,
+                                            year >= final_base_year), aes(x = as.numeric(year), y = value, color = scenario)) + 
   geom_point() + 
   geom_line() + 
   facet_wrap(~ region) + 
@@ -664,7 +477,7 @@ ggsave("figures/GasPrice_LNG.tiff", price.lng, "tiff", dpi = 200)
 
 # TFE by fuel
 tfe.fuel.plot<-ggplot(tfe.fuel %>% filter(region %in% selected_regions,
-                                       year == 2030), aes(x = scenario, y = value, color = sector, fill = sector)) + 
+                                          year == 2030), aes(x = scenario, y = value, color = sector, fill = sector)) + 
   geom_bar(stat = "identity", position = "stack") + 
   facet_wrap(~ region, scales = "free") + 
   theme_bw() + 
@@ -708,8 +521,8 @@ ggsave("figures/tfe_bySector_byReg.tiff", tfe.plot, "tiff", dpi = 200)
 
 # CO2 emissions
 co2.plot<-ggplot(co2 %>% filter(region %in% selected_regions,
-                                      year <= final_year,
-                                      year >= final_base_year), aes(x = as.numeric(year), y = value, color = scenario)) + 
+                                year <= final_year,
+                                year >= final_base_year), aes(x = as.numeric(year), y = value, color = scenario)) + 
   geom_point() + 
   geom_line() + 
   facet_wrap(~ region) + 
@@ -1005,7 +818,7 @@ ggplot(data = filter(cum_global_total_add, year <= 2030),
     "traded PAC pipeline gas" = "#0072B2",
     "traded RUS pipeline gas" = "#D55E00")) 
 
-  ggsave(paste0("figures/","cum_global_total_add_facet_export.pdf"),last_plot(),width=11, height=8, units="in")
+ggsave(paste0("figures/","cum_global_total_add_facet_export.pdf"),last_plot(),width=11, height=8, units="in")
 
 ggplot(data = filter(cum_global_total_add, year == 2030),
        aes(x = scenario, y = cum_additions, fill = sector, group = sector))+
@@ -1025,7 +838,7 @@ ggplot(data = filter(cum_global_total_add, year == 2030),
     "traded PAC pipeline gas" = "#0072B2",
     "traded RUS pipeline gas" = "#D55E00"))+
   coord_flip()
-  ggsave(paste0("figures/","cum_global_total_add_facet_export_2050.pdf", sep = ""),width=6, height=3, units="in")
+ggsave(paste0("figures/","cum_global_total_add_facet_export_2050.pdf", sep = ""),width=6, height=3, units="in")
 
 cum_global_total_ret$sector <- factor(cum_global_total_ret$sector,
                                       levels = c("traded LNG",
@@ -1054,7 +867,7 @@ ggplot(data = filter(cum_global_total_ret, year <= 2030),
     "traded N.Amer pipeline gas" = "#F0E442",
     "traded PAC pipeline gas" = "#0072B2",
     "traded RUS pipeline gas" = "#D55E00"))
-  ggsave(paste0("figures/","cum_global_total_ret_facet_export.pdf", sep = ""),width=11, height=8, units="in")
+ggsave(paste0("figures/","cum_global_total_ret_facet_export.pdf", sep = ""),width=11, height=8, units="in")
 
 ggplot(data = filter(cum_global_total_ret, year == 2030),
        aes(x = scenario, y = cum_retirements, fill = sector, group = sector))+
@@ -1074,7 +887,7 @@ ggplot(data = filter(cum_global_total_ret, year == 2030),
     "traded PAC pipeline gas" = "#0072B2",
     "traded RUS pipeline gas" = "#D55E00"))+
   coord_flip()
-  ggsave(paste0("figures/","cum_global_total_ret_facet_export_2050.pdf", sep = ""),width=6, height=3, units="in")
+ggsave(paste0("figures/","cum_global_total_ret_facet_export_2050.pdf", sep = ""),width=6, height=3, units="in")
 
 
 
