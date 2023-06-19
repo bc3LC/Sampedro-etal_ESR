@@ -221,7 +221,7 @@ tfe.fuel<-getQuery(prj,"final energy consumption by fuel") %>%
 #-------------------------------------------
 source('extra_fun.R')
 
-selected_year = 2025
+selected_year = 2025 # 2025 or 2030
 
 # palettes
 colors_regions = c("EU_SW" = "#cc3333",
