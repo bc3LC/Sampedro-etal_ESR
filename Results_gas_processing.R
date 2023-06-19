@@ -259,6 +259,10 @@ dataset = bind_rows(gas.trade.pipeline,dataset) %>% dplyr::filter(region %in% c(
                                                scenario %in% c('CP_Default','CP_noRus'))
 # difference between scenarios
 dataset = pivot_wider(dataset, names_from = scenario, values_from = value) %>%
+  # substitute NA for 0
+  dplyr::mutate('CP_noRus' = replace_na(CP_noRus,0),
+                'CP_Default' = replace_na(CP_Default,0)) %>%
+  # compute diff
   dplyr::mutate('val_diff' = CP_noRus - CP_Default) %>%
 # whole imported gas in Europe
   dplyr::group_by(sector, pipeline, year, Units) %>%
@@ -292,7 +296,16 @@ dat_tmp = merge(gas.all.withpipelines %>% filter(region %in% selected_regions,
                                 'units_price' = 'Units') %>%
                   dplyr::select(-sector), by = c('scenario','region','year'))
 # difference between scenarios
-dat_tmp = pivot_wider(dat_tmp, names_from = 'scenario', values_from = c('price','production'))
+dat_tmp = pivot_wider(dat_tmp, names_from = 'scenario', values_from = c('price','production')) %>%
+  # substitute NA in production for 0
+  dplyr::mutate('production_CP_Default' = tidyr::replace_na(production_CP_Default,0),
+                'production_CP_noRus' = tidyr::replace_na(production_CP_noRus,0)) %>% 
+  # substitute NA in price for gas price in that region-year
+  group_by(region,year) %>% 
+  mutate_at(vars(price_CP_Default,price_CP_noRus), 
+            ~replace_na(., 
+                        mean(., na.rm = TRUE)))
+  
 dat_tmp = dat_tmp %>%
   dplyr::group_by(region, year, sector, units_production, units_price) %>%
   dplyr::summarise('price' = 100 * (price_CP_noRus - price_CP_Default) / price_CP_Default,
@@ -310,10 +323,10 @@ dat_barcharts = merge(dat_tmp, read.csv('data/regions_barcharts_latlon.csv'), by
 dat_prices = merge(dat_tmp, read.csv('data/regions_prices_latlon.csv'), by = 'region')
 
 # save all bar charts as png and list them in a variable
-min_height = min_production(dat_barcharts)
-max_height = max_production(dat_barcharts)
-if (!dir.exists("figures/gas_production_by_reg")){
-  dir.create("figures/gas_production_by_reg")
+min_height = -1.5
+max_height = 1
+if (!dir.exists(paste0("figures/gas_production_by_reg_",selected_year))){
+  dir.create(paste0("figures/gas_production_by_reg_",selected_year))
 }
 for (reg in unique(dat_barcharts$region)) {
   pl_reg = ggplot() +
@@ -349,15 +362,15 @@ for (reg in unique(dat_barcharts$region)) {
     ylim(min_height, max_height) +
     theme(axis.text.y=element_text(color = as.vector(new_colors_oy(dat_barcharts |> filter(region == reg)))))
   pl_reg
-  ggsave(plot = pl_reg, file = paste0('figures/gas_production_by_reg/',reg,'.png'), width = 60, height = 80, units = 'mm')
+  ggsave(plot = pl_reg, file = paste0('figures/gas_production_by_reg_',selected_year,'/',reg,'.png'), width = 60, height = 80, units = 'mm')
 }
 list_gas.production = list(
-  png::readPNG("figures/gas_production_by_reg/EU_SW.png"),
-  png::readPNG("figures/gas_production_by_reg/EU_NW.png"),
-  png::readPNG("figures/gas_production_by_reg/EU_NE.png"),
-  png::readPNG("figures/gas_production_by_reg/EU_Cent.png"),
-  png::readPNG("figures/gas_production_by_reg/EU_SE.png"),
-  png::readPNG("figures/gas_production_by_reg/UK+.png")
+  png::readPNG(paste0("figures/gas_production_by_reg_",selected_year,"/EU_SW.png")),
+  png::readPNG(paste0("figures/gas_production_by_reg_",selected_year,"/EU_NW.png")),
+  png::readPNG(paste0("figures/gas_production_by_reg_",selected_year,"/EU_NE.png")),
+  png::readPNG(paste0("figures/gas_production_by_reg_",selected_year,"/EU_Cent.png")),
+  png::readPNG(paste0("figures/gas_production_by_reg_",selected_year,"/EU_SE.png")),
+  png::readPNG(paste0("figures/gas_production_by_reg_",selected_year,"/UK+.png"))
 )
 regions_barcharts_latlon = read.csv('data/regions_barcharts_latlon.csv')
 regions_prices_latlon = read.csv('data/regions_prices_latlon.csv')
@@ -500,8 +513,7 @@ leg_barcharts2 = ggpubr::get_legend(ggplot() +
                                       theme(legend.key = element_rect(fill = "transparent", colour = "transparent"),
                                             legend.title = element_text(size = 18),
                                             legend.key.size = unit(1.5,'cm'),
-                                            legend.text = element_text(size = 13)))
-# regions legend
+                                            legend.text = element_text(size = 13)))# regions legend
 leg_regions = ggpubr::get_legend(ggplot() +
                                    geom_sf(data = world, aes(fill = ab)) +
                                    scale_fill_manual(values = colors_regions,
