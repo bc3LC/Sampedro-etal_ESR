@@ -323,8 +323,8 @@ dat_barcharts = merge(dat_tmp, read.csv('data/regions_barcharts_latlon.csv'), by
 dat_prices = merge(dat_tmp, read.csv('data/regions_prices_latlon.csv'), by = 'region')
 
 # save all bar charts as png and list them in a variable
-min_height = -1.5
-max_height = 1
+min_height = min(-1.4, min_production(dat_barcharts))
+max_height = max(1, max_production(dat_barcharts))
 if (!dir.exists(paste0("figures/gas_production_by_reg_",selected_year))){
   dir.create(paste0("figures/gas_production_by_reg_",selected_year))
 }
