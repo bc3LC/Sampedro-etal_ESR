@@ -219,6 +219,7 @@ tfe.fuel<-getQuery(prj,"final energy consumption by fuel") %>%
 #------------- FIG 1 -----------------------
 #-------------------------------------------
 #-------------------------------------------
+source('extra_fun.R')
 
 selected_year = 2025
 
@@ -309,14 +310,8 @@ dat_barcharts = merge(dat_tmp, read.csv('data/regions_barcharts_latlon.csv'), by
 dat_prices = merge(dat_tmp, read.csv('data/regions_prices_latlon.csv'), by = 'region')
 
 # save all bar charts as png and list them in a variable
-min_height = dat_barcharts %>%
-  dplyr::group_by(region,year) %>%
-  dplyr::summarise('min' = sum(production[production<0])) %>%
-  pull(min) %>% min()
-max_height = dat_barcharts %>%
-  dplyr::group_by(region,year) %>%
-  dplyr::summarise('max' = sum(production[production>0])) %>%
-  pull(max) %>% max()
+min_height = min_production(dat_barcharts)
+max_height = max_production(dat_barcharts)
 if (!dir.exists("figures/gas_production_by_reg")){
   dir.create("figures/gas_production_by_reg")
 }
@@ -351,7 +346,9 @@ for (reg in unique(dat_barcharts$region)) {
     # erase legend
     guides(fill = "none", color = "none") +
     # fix OY axis for better comparison
-    ylim(min_height, max_height)
+    ylim(min_height, max_height) +
+    theme(axis.text.y=element_text(color = as.vector(new_colors_oy(dat_barcharts |> filter(region == reg)))))
+  pl_reg
   ggsave(plot = pl_reg, file = paste0('figures/gas_production_by_reg/',reg,'.png'), width = 60, height = 80, units = 'mm')
 }
 list_gas.production = list(
