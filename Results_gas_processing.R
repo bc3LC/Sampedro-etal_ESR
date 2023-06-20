@@ -647,7 +647,7 @@ plot_row <- cowplot::plot_grid(pie_chart_2020, pie_chart_2025, labels = c('2020'
 # now add the title
 title <- ggdraw() + 
   draw_label(
-    "Russian Gas Pipeline Imports to the EU",
+    "Russian Gas Pipeline Exports to the EU",
     fontface = 'bold',
     x = 0,
     hjust = 0
@@ -666,7 +666,7 @@ pie_charts <- plot_grid(
   rel_heights = c(0.1, 1)
 )
 
-save_plot("figures/pie_charts_RusImports.png", plot = pie_charts, base_height = 6)
+save_plot("figures/pie_charts_RusExports.png", plot = pie_charts, base_height = 6)
 
 # ================================FIGURES CP Only=======================================
 # Electricity CP ONLY ------
