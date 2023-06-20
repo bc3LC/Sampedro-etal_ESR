@@ -229,7 +229,7 @@ colors_regions = c("EU_SW" = "#cc3333",
                    "EU_NW" = "#41b6c4",
                    "EU_Cent" = "#73af48",
                    "EU_NE" = "#fd8d3c",
-                   "British Islands" = "#fccde5")
+                   "BI" = "#fccde5")
 colors_barcharts = c("domestic natural gas" = '#188965',
                      "imported LNG" = '#ADD68A',
                      "imported pipeline gas\nfrom Europe" = '#49C5FA',
@@ -243,7 +243,7 @@ regions_plt = regions %>%
   dplyr::rename('region_full' = 'region') %>%
   dplyr::mutate('ab' = ifelse(ab == "", region_full, ab)) %>%
   dplyr::filter(country_name != 'Greenland') %>%
-  dplyr::mutate(ab = ifelse(ab == 'UK+', 'British Islands', ab))
+  dplyr::mutate(ab = ifelse(ab == 'UK+', 'BI', ab))
 # world visualization
 world <- rnaturalearth::ne_countries(scale = "small", returnclass = "sf") %>%
   dplyr::mutate('adm0_a3' = if_else(adm0_a3== 'ROU', 'ROM',adm0_a3))
@@ -498,7 +498,7 @@ leg_barcharts1 = ggpubr::get_legend(ggplot() +
                                                stat = "identity", color = NA, width = 0.5,
                                                position = position_stack(reverse = TRUE)) +
                                       scale_fill_manual(values = colors_barcharts,
-                                                        name = 'Sector production') +
+                                                        name = 'Sector production [EJ]') +
                                       theme(legend.key = element_rect(fill = "transparent", colour = "transparent"),
                                             legend.title = element_text(size = 18),
                                             legend.key.size = unit(1,'cm'),
@@ -561,21 +561,21 @@ leg_price = leg_price +
 
 
 # mix all features in one single figure
-fig1 = cowplot::ggdraw() +
+fig = cowplot::ggdraw() +
   theme(plot.background = element_rect(fill="white")) +
   cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.95, height = 0.90) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_regions,blank_p,nrow=1), x = -0.005, y = 0.2985, width = 1, height = 1) +
+  cowplot::draw_plot(cowplot::plot_grid(leg_regions,blank_p,nrow=1), x = -0.0145, y = 0.299, width = 1, height = 1) +
   cowplot::draw_plot(cowplot::plot_grid(leg_barcharts2,blank_p,nrow=1), x = -0.1355, y = 0.217, width = 1, height = 1) +
   cowplot::draw_plot(cowplot::plot_grid(leg_barcharts1,blank_p,nrow=1), x = -0.1105, y = 0.312, width = 0.9, height = 1) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_pipelines,blank_p,nrow=1), x = 0.125, y = 0.34, width = 1, height = 1) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_price,blank_p,nrow=1), x = 0.307, y = 0.65, width = 0.275, height = 0.2)
+  cowplot::draw_plot(cowplot::plot_grid(leg_pipelines,blank_p,nrow=1), x = 0.1, y = 0.34, width = 1, height = 1) +
+  cowplot::draw_plot(cowplot::plot_grid(leg_price,blank_p,nrow=1), x = 0.282, y = 0.653, width = 0.275, height = 0.2)
 # # title
 # + cowplot::draw_plot_label(label = paste0("Gas imports and production in ",selected_year),
 #                          size = 20,
 #                          x = -0.245, y = 0.993)
 
 # save
-ggsave(plot = fig1, file = paste0('figures/map_',selected_year,'.png'), height = 400, width = 439, units = 'mm')
+ggsave(plot = fig, file = paste0('figures/map_',selected_year,'.png'), height = 400, width = 439, units = 'mm')
 
 
 #------------ OTHER FIGS--------------------
