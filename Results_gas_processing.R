@@ -207,9 +207,11 @@ wfall_alpha <- c("Gas production" = 1, "EUR pipeline" = 1, "Afr_MidE pipeline" =
 
 if (waterfall_year == 2025){
   legend_breaks <- c("Gas production", "EUR pipeline", "Afr_MidE pipeline", "LNG")
+  x_axis_labels <- c('Replacement Gas', 'Other Fossil Fuels', 'PE Decrease', 'Russian Gas Loss')
 } else {
   legend_breaks <- c("Gas production", "EUR pipeline", "Afr_MidE pipeline", "LNG", 
                      "Other fossil", "Low-carbon")
+  x_axis_labels <- c('Replacement Gas', 'Other Energy Sources', 'PE Decrease', 'Russian Gas Loss')
   
 }
 
@@ -226,10 +228,7 @@ plot_waterfall <- ggplot(full_waterfall_data_EU %>% filter(scen_policy == "CP", 
   theme_bw() +
   labs(x = "", y = "EJ (NoRus-Default)",
        title = paste0(waterfall_year, " EU Russian Gas Replacement (Primary Energy)")) +
-  scale_x_discrete(labels=c('Replacement Gas', 
-                            'Other Energy Sources',
-                            'PE Decrease',
-                            'Russian Gas Loss')) +
+  scale_x_discrete(labels=x_axis_labels) +
   theme(strip.text = element_text(size = 12),
         plot.title = element_text(size = 14),
         legend.title = element_text(size = 12),
