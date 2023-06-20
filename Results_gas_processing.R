@@ -393,7 +393,7 @@ pl_main = ggplot() +
                    color = ifelse(total_imp >= 0, "pos", "neg")),
                arrow = arrow(length = unit(0.25, "cm")),
                alpha = 0.9) +
-  scale_colour_manual(values = c('pos' = "#b3de69",'neg' = "#b73244"),
+  scale_colour_manual(values = c('pos' = "#00931d",'neg' = "#b73244"),
                       labels = c('Gas supply decrease','Gas supply increase'),
                       name = 'Pipeline flow\ndifference [EJ]') +
   guides(linewidth = FALSE, color = FALSE) +
@@ -531,7 +531,7 @@ leg_pipelines = ggpubr::get_legend(ggplot() +
                                                       color = ifelse(total_imp >= 0, "pos", "neg")),
                                                   arrow = arrow(length = unit(0.25, "cm")),
                                                   alpha = 0.8) +
-                                     scale_colour_manual(values = c('pos' = "#b3de69",'neg' = "#b73244"),
+                                     scale_colour_manual(values = c('pos' = "#00931d",'neg' = "#b73244"),
                                                          labels = c('Gas supply decrease','Gas supply increase'),
                                                          name = 'Pipeline flow\ndifference [EJ]') +
                                      guides(linewidth = FALSE) +
