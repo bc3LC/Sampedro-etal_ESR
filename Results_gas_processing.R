@@ -393,7 +393,7 @@ pl_main = ggplot() +
                    color = ifelse(total_imp >= 0, "pos", "neg")),
                arrow = arrow(length = unit(0.25, "cm")),
                alpha = 0.9) +
-  scale_colour_manual(values = c('pos' = "#00931d",'neg' = "#b73244"),
+  scale_colour_manual(values = c('pos' = "#00931d",'neg' = "#BB0000"),
                       labels = c('Gas supply decrease','Gas supply increase'),
                       name = 'Pipeline flow\ndifference [EJ]') +
   guides(linewidth = FALSE, color = FALSE) +
@@ -508,8 +508,8 @@ leg_barcharts2 = ggpubr::get_legend(ggplot() +
                                       geom_errorbar(data = dat_barcharts_sum |> filter(region == 'EU_SW'),
                                                     aes(x = 0, y = total_production, ymin = total_production, ymax = total_production, color = as.factor(year)),
                                                     linewidth = 1.4, linetype = "longdash", width = 0.5) +
-                                      scale_color_manual(values = "red", labels = "Net Change in output",
-                                                         guide = guide_legend(keywidth = 2.15, title = NULL)) +
+                                      scale_color_manual(values = "red", labels = "Net Change in output   ",
+                                                         guide = guide_legend(keywidth = 2.4, title = NULL)) +
                                       theme(legend.key = element_rect(fill = "transparent", colour = "transparent"),
                                             legend.title = element_text(size = 18),
                                             legend.key.size = unit(1.5,'cm'),
@@ -531,7 +531,7 @@ leg_pipelines = ggpubr::get_legend(ggplot() +
                                                       color = ifelse(total_imp >= 0, "pos", "neg")),
                                                   arrow = arrow(length = unit(0.25, "cm")),
                                                   alpha = 0.8) +
-                                     scale_colour_manual(values = c('pos' = "#00931d",'neg' = "#b73244"),
+                                     scale_colour_manual(values = c('pos' = "#00931d",'neg' = "#BB0000"),
                                                          labels = c('Gas supply decrease','Gas supply increase'),
                                                          name = 'Pipeline flow\ndifference [EJ]') +
                                      guides(linewidth = FALSE) +
@@ -565,10 +565,10 @@ fig = cowplot::ggdraw() +
   theme(plot.background = element_rect(fill="white")) +
   cowplot::draw_plot(pl_main, x = 0.01, y = 0, width = 0.95, height = 0.90) +
   cowplot::draw_plot(cowplot::plot_grid(leg_regions,blank_p,nrow=1), x = -0.0145, y = 0.299, width = 1, height = 1) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_barcharts2,blank_p,nrow=1), x = -0.1355, y = 0.217, width = 1, height = 1) +
+  cowplot::draw_plot(cowplot::plot_grid(leg_barcharts2,blank_p,nrow=1), x = -0.13565, y = 0.217, width = 1, height = 1) +
   cowplot::draw_plot(cowplot::plot_grid(leg_barcharts1,blank_p,nrow=1), x = -0.1105, y = 0.312, width = 0.9, height = 1) +
   cowplot::draw_plot(cowplot::plot_grid(leg_pipelines,blank_p,nrow=1), x = 0.1, y = 0.34, width = 1, height = 1) +
-  cowplot::draw_plot(cowplot::plot_grid(leg_price,blank_p,nrow=1), x = 0.282, y = 0.653, width = 0.275, height = 0.2)
+  cowplot::draw_plot(cowplot::plot_grid(leg_price,blank_p,nrow=1), x = 0.282, y = 0.653, width = 0.273, height = 0.2)
 # # title
 # + cowplot::draw_plot_label(label = paste0("Gas imports and production in ",selected_year),
 #                          size = 20,
