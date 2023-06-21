@@ -46,7 +46,7 @@ region_rewrite <- tibble(region = c("EU_Central", "EU_Northeast", "EU_Northwest"
                            "Lithuania", "Poland", "UK+"),
                          region_rewrite = c("EU_Cent", "EU_NE", "EU_NW", 
                                             "EU_SE", "EU_SW",
-                                            "EU_NE" , "EU_Cent", "UK+"))
+                                            "EU_NE" , "EU_Cent", "BI"))
 selected_regions<-c("EU_Cent", "EU_NE", "EU_NW", "EU_SE", "EU_SW",
                     "Lithuania" , "Poland", "UK+")
 

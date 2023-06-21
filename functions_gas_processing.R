@@ -14,7 +14,8 @@ rename_filter_regions <- function(df, regions){
   df %>% 
     right_join(regions, by = join_by(region)) %>%
     select(-region) %>% 
-    rename(region = region_rewrite)
+    rename(region = region_rewrite) %>% 
+    mutate(region = factor(region, unique(region_rewrite$region_rewrite)))
 }
 
 symmetrise_scale <- function(p, axis = "x"){
@@ -35,15 +36,13 @@ symmetrise_scale <- function(p, axis = "x"){
 diff_plot <- function(df, colors, fill, title, ylab, sum_line_lab, 
                       pct = F, x_aes = "scen_policy", y_aes = "diff"){
   sum_bars <- df %>% 
-    filter(region %in% selected_regions,
-           year == 2030) %>% 
+    filter(year == 2030) %>% 
     group_by(scen_policy, region) %>% 
     summarise(sum_diff = sum(get(y_aes))) %>% 
     ungroup
   
   plot_data <- df %>% 
-    filter(region %in% selected_regions,
-           year == 2030) %>% 
+    filter(year == 2030) %>% 
     left_join_error_no_match(sum_bars, by = join_by(scen_policy, region))
   
   plot <- ggplot(plot_data, aes(.data[[x_aes]], y = .data[[y_aes]],
@@ -80,15 +79,13 @@ diff_plot_CP <- function(df, colors, fill, title, ylab,  sum_line_lab = "",
                          roundoff = 100, barsize = 0.8, sym_scales = T,
                          plot_years = figure_years){
   sum_bars <- df %>% 
-    filter(region %in% selected_regions,
-           year %in% plot_years) %>% 
+    filter(year %in% plot_years) %>% 
     group_by(scen_policy, region, year) %>% 
     summarise(sum_diff = sum(get(y_aes))) %>% 
     ungroup
   
   plot_data <- df %>% 
-    filter(region %in% selected_regions,
-           year %in% plot_years) %>% 
+    filter(year %in% plot_years) %>% 
     left_join_error_no_match(sum_bars, by = join_by(scen_policy, region, year))
   
   ax_lims <- plot_data %>% 
