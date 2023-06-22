@@ -716,7 +716,7 @@ CP.bld_grpd_colors <- c("gas" = "dodgerblue3","fossil" = "grey20",  "electricity
                      "other" = "olivedrab")
 
 CP.bld.out.diff.plot <- diff_plot_CP(bld_out_diff_grouped %>% filter(scen_policy == "CP"), 
-                               colors = bld_grpd_colors, 
+                               colors = CP.bld_grpd_colors, 
                                fill = "fuel", 
                                ylab = "% (of total Default output)",
                                sum_line_lab = "Net Change in Output",
