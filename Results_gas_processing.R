@@ -28,8 +28,7 @@ QUERY_LIST <- listQueries(prj)
 
 # --------
 # Vectors to filter data: select years and desired regions for the figures
-selected_regions<-c("EFTA", "EU_Cent", "EU_NE", "EU_NW", "EU_SE", "EU_SW",
-                    "Eur_East", "Eur_nonEU", "Lithuania" , "Poland", "UK+", "Ukraine")
+selected_regions<-c("EU_Cent", "EU_NE", "EU_NW", "EU_SE", "EU_SW", "Lithuania" , "Poland", "BI")
 
 final_base_year<-2015
 final_year<-2030
@@ -81,14 +80,28 @@ rename_scen<- function(df){
 #-------------DATA PROCESSING-------------
 # --------
 # Income
-gdppc<-getQuery(prj,"GDP per capita MER by region") %>%
-  rename_scen()
+gdp<-getQuery(prj,"GDP MER by region") %>%
+  rename_scen() %>%
+  left_join(regions %>% distinct(region, ab), by = "region") %>%
+  mutate(region = if_else(ab != "", ab, region)) %>%
+  select(-ab) %>%
+  group_by(scenario, region, year, Units) %>%
+  summarise(value = sum(value)) %>%
+  ungroup()
+
 
 
 #----------------------------------------
 # Population
 pop<- getQuery(prj,"Population by region") %>%
-  rename_scen()
+  rename_scen() %>%
+  left_join(regions %>% distinct(region, ab), by = "region") %>%
+  mutate(region = if_else(ab != "", ab, region)) %>%
+  select(-ab) %>%
+  group_by(scenario, region, year, Units) %>%
+  summarise(value = sum(value)) %>%
+  ungroup()
+
 
 #----------------------------------------
 # Primary Energy
@@ -891,9 +904,62 @@ ggplot(data = filter(cum_global_total_ret, year == 2030),
 
 
 
+# =====================================
+# Socioeconomics
+  
+  colors_regions_socio = c("EU_SW" = "#cc3333",
+                     "EU_SE" = "#b3de69",
+                     "EU_NW" = "#41b6c4",
+                     "EU_Cent" = "#73af48",
+                     "EU_NE" = "#fd8d3c",
+                     "BI" = "#fccde5")
+  
+  # Population:
+pop.plot<-ggplot(pop %>% 
+                   filter(region %in% selected_regions) %>%
+                   mutate(value = value / 1E3), aes(x = as.numeric(year), y = value, color = region)) + 
+    geom_point() + 
+    geom_line() + 
+    facet_wrap(~ region) + 
+    theme_bw() + 
+    labs(x = "", y = "Million") + 
+    theme(legend.position = "bottom",
+          legend.title = element_blank(),
+          legend.text =  element_text(size = 12),
+          strip.text = element_text(size = 12),
+          axis.title.y = element_text(size = 14),
+          axis.text.x = element_text(size = 12),
+          axis.text.y = element_text(size = 13)) + 
+    scale_color_manual(values = colors_regions_socio) +
+    ggtitle("Population by region and period (Million)")
 
-
-
+pop.plot
+  
+  ggsave("figures/SI/pop.tiff", pop.plot, "tiff", dpi = 200)
+  
+  # GDP:
+  gdp.plot<-ggplot(gdp %>% 
+                     filter(region %in% selected_regions) %>%
+                     mutate(value = value * gcamdata::gdp_deflator(2015, 1990) / 1E6),
+                   aes(x = as.numeric(year), y = value, color = region)) + 
+    geom_point() + 
+    geom_line() + 
+    facet_wrap(~ region) + 
+    theme_bw() + 
+    labs(x = "", y = "Trillion2015US$") + 
+    theme(legend.position = "bottom",
+          legend.title = element_blank(),
+          legend.text =  element_text(size = 12),
+          strip.text = element_text(size = 12),
+          axis.title.y = element_text(size = 14),
+          axis.text.x = element_text(size = 12),
+          axis.text.y = element_text(size = 13)) + 
+    scale_color_manual(values = colors_regions_socio) +
+    ggtitle("GDP by region and period (Trillion2015US$)")
+  
+  gdp.plot
+  
+  ggsave("figures/SI/gdp.tiff", gdp.plot, "tiff", dpi = 200)
 
 
 

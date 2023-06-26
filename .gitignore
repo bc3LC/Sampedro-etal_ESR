@@ -52,3 +52,6 @@ old/
 
 # xlsx files
 *.xlsx
+
+# pptx files
+*.pptx
