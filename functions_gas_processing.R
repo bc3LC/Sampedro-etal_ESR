@@ -12,7 +12,7 @@ rename_scen<- function(df){
 
 rename_filter_regions <- function(df, regions){
   df %>% 
-    right_join(regions, by = join_by(region)) %>%
+    right_join(regions, by = c("region")) %>%
     select(-region) %>% 
     rename(region = region_rewrite)
 }
@@ -43,7 +43,7 @@ diff_plot <- function(df, x_aes = "scen_policy", y_aes = "diff", colors, fill, t
   plot_data <- df %>% 
     filter(region %in% selected_regions,
            year == 2030) %>% 
-    left_join_error_no_match(sum_bars, by = join_by(scen_policy, region))
+    left_join_error_no_match(sum_bars, by = c("scen_policy", "region"))
   
   plot <- ggplot(plot_data, aes(.data[[x_aes]], y = .data[[y_aes]],
                                 fill = factor(get(fill), names(colors)))) +
