@@ -1,5 +1,6 @@
-# Load libraries
-# --------
+setwd("~/gas_crisis_analysis")
+source("functions_gas_processing.R")
+# Load libraries ----
 library(rgcam)
 library(dplyr)
 library(tidyr)
@@ -9,33 +10,54 @@ library(tibble)
 library(gcamdata)
 library(rmap)
 library(ggsci)
-# --------
-# Extract queries from db using rgcam
-# --------
-#prj<-rgcam::addMIBatchCSV(fn = "results_gas_local.csv",
+library(stringr)
+# Extract queries from db using rgcam/load project file ----
+DAT_NAME <- "paperGas_fin2_newQueries.dat"
+
+
+if(file.exists(DAT_NAME)){
+  prj <- rgcam::loadProject(DAT_NAME)
+} else{
+  conn <- localDBConn('C:/Users/russell.horowitz/Documents/gas_crisis_analysis/db/', 
+                      'database_basexdb_iamCompact_paperGas_fin2/')
+  for(scen in listScenariosInDB(conn)$name){
+    prj <- addScenario(conn, DAT_NAME, scen, "queries/queries_gas_new.xml")
+  }
+}
+
+# 
+# prj<-rgcam::addMIBatchCSV(fn = "results_gas_local.csv",
 #                     proj = "results_gas_local.dat",
 #                  clobber = FALSE)
-#
-#saveProject(prj,"results_gas_local.dat")
+# 
+# saveProject(prj, DAT_NAME)
 
 
-# --------
-# Load project file
-prj <- loadProject("paperGas_fin2.dat")
+# prj <- loadProject(DAT_NAME)
 listScenarios(prj)
 QUERY_LIST <- listQueries(prj)
 
 
-# --------
-# Vectors to filter data: select years and desired regions for the figures
-selected_regions<-c("EU_Cent", "EU_NE", "EU_NW", "EU_SE", "EU_SW", "Lithuania" , "Poland", "BI")
+GWP <- readr::read_csv("data/GWP_AR5.csv")
+gas_cons_sectors <- readr::read_csv("data/gas_cons_sectors.csv")
+# Filter data: years and regions ----
+region_rewrite <- tibble(region = c("EU_Central", "EU_Northeast", "EU_Northwest", 
+                           "EU_Southeast", "EU_Southwest", 
+                           "Lithuania", "Poland", "UK+"),
+                         region_rewrite = c("EU_Cent", "EU_NE", "EU_NW", 
+                                            "EU_SE", "EU_SW",
+                                            "EU_NE" , "EU_Cent", "UK+"))
+selected_regions<-c("EU_Cent", "EU_NE", "EU_NW", "EU_SE", "EU_SW",
+                    "Lithuania" , "Poland", "UK+")
+
 
 final_base_year<-2015
 final_year<-2030
+figure_years <- c(2025, 2030)
+waterfall_year <- 2025
 
 
-# --------
-# Create a dataframe to consult with region names and countries within each region (only for consultation)
+# Create a dataframe to consult with region names and countries within each region (only for consultation) 
 regions<-as_tibble(read.csv("data/iso_GCAM_regID.csv", skip = 6)) %>%
   left_join_error_no_match(read.csv("data/GCAM_region_names.csv", skip = 6), by = "GCAM_region_ID") %>%
   select(GCAM_region_ID, region, ab, country_name, iso) %>%
@@ -50,29 +72,185 @@ regions_pr<-as_tibble(read.csv("data/iso_GCAM_regID.csv", skip = 6)) %>%
          ab = if_else(region == "Poland", "Poland",ab ))
 
 
-# --------
-# Create some palettes for homogeneization of figures
+# Color palettes --------
 #my_pal<-c("gray20","gray50","#ad440c","#ef8e27","#d01c2a","darkorchid3","#507fab","deepskyblue1","#11d081", "#00931d")
 my_pal_en<-c("#00931d","gray20","thistle2","gold2","deepskyblue1","peachpuff2","#d01c2a","#11d081")
 my_pal_en_noh<-c("#00931d","gray20","thistle2","gold2","deepskyblue1","#d01c2a","#11d081")
 my_pal_scen<-c("#999999","#E69F00", "#56B4E9", "#009E73", "#CC79A7","darkgoldenrod1")
+my_pal_ghg<-c("#999999","#d01c2a","deepskyblue1","#11d081")
+my_pal_ghg_luc<-c("#999999","#00931d", "#d01c2a","deepskyblue1","#CC79A7")
+
 #my_pal_ssp<-c("forestgreen","dodgerblue3","darkgoldenrod3","firebrick3","black")
+# =======================================================================
+# ===================================WATERFALL====================================
+# Data Processing -----
+# Gas Changes
+gas_change <- getQuery(prj, "inputs by sector") %>% 
+  filter(Units == "EJ",
+         sector == "regional natural gas",
+         input != "RUS-pipeline-limit",
+         year == final_year) %>% 
+  rename_filter_regions(region_rewrite) %>% 
+  rename_scen() %>% 
+  group_by(Units, scenario, input, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup %>% 
+  separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
+  pivot_wider(names_from = scen_gas) %>% 
+  replace_na(list(Default = 0, noRus = 0)) %>% 
+  mutate(diff = noRus - Default,
+         input = str_remove(input, "traded "),
+         input = str_replace(input, "pipeline gas", "pipeline"),
+         input = str_replace(input, "natural gas", "Gas production"),
+         input = str_replace(input, "RUS pipeline", "RUS gas loss"),
+         order = if_else(input == "RUS gas loss", 4, 1),
+         diff = if_else(input == "RUS gas loss", diff * -1, diff) )  
 
-# ------
-# Ancillary functions
+order_1_sum <- gas_change %>% 
+  filter(order == 1) %>% 
+  group_by(Units, scen_policy, year) %>% 
+  summarise(diff = sum(diff)) %>% 
+  ungroup %>% 
+  mutate(order = 2,
+         input = "order_1_sum")
 
-rename_scen<- function(df){
-  
-  df<- df %>%
-  mutate(scenario = if_else(scenario == "NewGasCalib_EUpre55CP", "CP_Default", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_noRusGas", "CP_NoRus", scenario),
-         scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario))
-  
-  return(invisible(df))
-  
-}
+PE_change <-  getQuery(prj,"primary energy consumption by region (avg fossil efficiency)") %>% 
+  filter(year == final_year,
+         fuel != "elect_td_en",
+         fuel != "gas pipeline") %>% 
+  mutate(fuel = stringr::str_remove(fuel, "^\\w{1} "),
+         fuel = case_when(
+           fuel %in% c("coal", "oil") ~ "Other fossil",
+           fuel %in% c("natural gas") ~ "gas",
+           fuel %in% c("biomass", "geothermal", "hydro", "nuclear", 
+                       "solar", "traditional biomass", "wind") ~ "Low-carbon")) %>% 
+  rename_filter_regions(region_rewrite) %>% 
+  rename_scen() %>% 
+  group_by(Units, scenario, fuel, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup
 
+other_fuel_change <- PE_change %>% 
+  filter(fuel != "gas") %>% 
+  separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
+  pivot_wider(names_from = scen_gas) %>% 
+  replace_na(list(Default = 0, noRus = 0)) %>% 
+  mutate(diff = noRus - Default,
+         order = 2) %>% 
+  rename(input = fuel) 
+
+order_2_sum <- bind_rows(order_1_sum, other_fuel_change) %>% 
+  filter(order == 2) %>% 
+  group_by(Units, scen_policy, year) %>% 
+  summarise(diff = sum(diff)) %>% 
+  ungroup %>% 
+  mutate(order = 3,
+         input = "order_2_sum")
+
+PE_total_diff <- PE_change %>% 
+  group_by(Units, scenario, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup %>% 
+  separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
+  pivot_wider(names_from = scen_gas) %>% 
+  replace_na(list(Default = 0, noRus = 0)) %>% 
+  mutate(diff = -1 *(noRus - Default),
+         order = 3,
+         input = "PE decrease") 
+
+full_waterfall_data <- bind_rows(gas_change, order_1_sum, 
+                                 other_fuel_change, order_2_sum,
+                                 PE_total_diff) %>% 
+  mutate(order = as.factor(order)) 
+
+PE_total_Default <- filter(PE_change, grepl("Default", scenario)) %>% 
+  group_by(Units, scenario, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup %>% 
+  separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
+  select(-scen_gas)
+
+full_waterfall_data_pct <- full_waterfall_data %>% 
+  left_join(PE_total_Default, by = join_by(Units, scen_policy, year)) %>% 
+  mutate(diff = diff / value)
+  
+# Plot ----
+# Full waterfall
+wfall_colors <- c("Gas production" = "dodgerblue4", "EUR pipeline" = "dodgerblue3", 
+                  "Afr_MidE pipeline" = "dodgerblue", "LNG" = "skyblue", 
+                  "order_1_sum" = "white",
+                  "Other fossil" = "darkgoldenrod4", "Low-carbon" = "goldenrod", 
+                  "order_2_sum" = "white",
+                  "PE decrease" = "grey50",
+                  "RUS gas loss" = "firebrick" )
+wfall_alpha <- c("Gas production" = 1, "EUR pipeline" = 1, "Afr_MidE pipeline" = 1, "LNG" = 1, 
+                 "order_1_sum" = 0,
+                 "Other fossil" = 1, "Low-carbon" = 1, 
+                 "order_2_sum" = 0,
+                 "PE decrease" = 1,
+                 "RUS gas loss" = 1)
+plot_waterfall <- ggplot(full_waterfall_data, 
+                         aes(x = order, y = diff, fill = factor(input, names(wfall_colors)),
+                             alpha = input)) +
+  geom_bar(stat = "identity", width = 0.8, position = position_stack(reverse = TRUE)) +
+  scale_fill_manual(values = wfall_colors,  
+                    guide = guide_legend(reverse = TRUE, title="RUS Gas Replacement"),
+                    breaks = c("Gas production", "EUR pipeline", "Afr_MidE pipeline", "LNG", 
+                               "Other fossil", "Low-carbon")) +
+  scale_alpha_manual(values = wfall_alpha, guide = "none") +
+  facet_wrap(~ scen_policy , scales = "free", ncol = 1, strip.position = "left") +
+  theme_bw() +
+  labs(x = "", y = "EJ (NoRus-Default)",
+       title = "2030 EU Russian Gas Replacement (Primary Energy)") +
+  scale_x_discrete(labels=c('Replacement Gas', 
+                            'Other Energy Sources',
+                            'PE Decrease',
+                            'Russian Gas Loss')) +
+  theme(strip.text = element_text(size = 12),
+        plot.title = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        axis.title.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 10),
+        panel.spacing = unit(2, "lines"))
+
+plot_waterfall
+
+ggsave("figures/waterfall_PE.png", plot = plot_waterfall,
+       width = 9.75, height = 7)
+
+plot_waterfall_pct <- ggplot(full_waterfall_data_pct, 
+                         aes(x = order, y = diff, fill = factor(input, names(wfall_colors)),
+                             alpha = input)) +
+  geom_bar(stat = "identity", width = 0.8, position = position_stack(reverse = TRUE)) +
+  scale_fill_manual(values = wfall_colors,  
+                    guide = guide_legend(reverse = TRUE, title="RUS Gas Replacement"),
+                    breaks = c("Gas production", "EUR pipeline", "Afr_MidE pipeline", "LNG", 
+                               "Other fossil", "Low-carbon")) +
+  scale_alpha_manual(values = wfall_alpha, guide = "none") +
+  facet_wrap(~ scen_policy , scales = "free", ncol = 1, strip.position = "left") +
+  theme_bw() +
+  labs(x = "", y = "% Change in PE (NoRus-Default)",
+       title = "2030 EU Russian Gas Replacement (Primary Energy)") +
+  scale_x_discrete(labels=c('Replacement Gas', 
+                            'Other Energy Sources',
+                            'PE Decrease',
+                            'Russian Gas Loss')) +
+  scale_y_continuous(labels = scales::percent) +
+  theme(strip.text = element_text(size = 12),
+        plot.title = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        axis.title.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 10),
+        panel.spacing = unit(2, "lines"))
+
+plot_waterfall_pct
+
+ggsave("figures/waterfall_PE_pct.png", plot = plot_waterfall_pct,
+       width = 9.75, height = 7)
 
 # =======================================================================
 # =======================================================================
@@ -90,9 +268,12 @@ gdp<-getQuery(prj,"GDP MER by region") %>%
   ungroup()
 
 
+# Income -----------
+gdppc<-getQuery(prj,"GDP per capita MER by region") %>%
+  rename_scen()
 
-#----------------------------------------
-# Population
+
+# Population ----
 pop<- getQuery(prj,"Population by region") %>%
   rename_scen() %>%
   left_join(regions %>% distinct(region, ab), by = "region") %>%
@@ -103,13 +284,80 @@ pop<- getQuery(prj,"Population by region") %>%
   ungroup()
 
 
-#----------------------------------------
-# Primary Energy
-pr.energy<- getQuery(prj,"primary energy consumption by region (avg fossil efficiency)") %>%
-  rename_scen()
+# Primary Energy ----
+pr.energy <- getQuery(prj,"primary energy consumption by region (avg fossil efficiency)") %>%
+  rename_scen() %>% 
+  filter(fuel != "elect_td_en",
+         fuel != "gas pipeline") %>% 
+  mutate(fuel = stringr::str_remove(fuel, "^\\w{1} ")) %>%
+  left_join(regions %>% distinct(region, ab), by = "region") %>%
+  mutate(region = if_else(ab != "", ab, region)) %>%
+  select(-ab) %>% 
+  group_by(Units, scenario, region, fuel, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup
 
-#----------------------------------------
-# Gas
+pr.energy_diff <- pr.energy %>% 
+  separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
+  pivot_wider(names_from = scen_gas) %>% 
+  mutate(diff = noRus - Default)
+
+pr.energy_diff_grouped <- pr.energy_diff %>% 
+  mutate(fuel = case_when(
+    fuel %in% c("coal", "oil") ~ "other fossil",
+    fuel %in% c("natural gas") ~ "gas",
+    fuel %in% c("biomass", "geothermal", "hydro", "nuclear", 
+                "solar", "traditional biomass", "wind") ~ "low-carbon")) %>% 
+  group_by(Units, scen_policy, region, fuel, year) %>% 
+  summarise(diff = sum(diff)) %>% 
+  ungroup
+
+# Electricity ---------
+elec_gen <- getQuery(prj,"elec gen by gen tech") %>%
+  rename_scen() %>%
+  left_join(regions %>% distinct(region, ab), by = "region") %>%
+  mutate(region = if_else(ab != "", ab, region)) %>%
+  select(-ab) %>% 
+  mutate(subsector = str_replace(subsector, "rooftop_pv", "solar")) %>% 
+  group_by(Units, scenario, region, subsector, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup
+
+elec_gen_grouped <- elec_gen %>% 
+  mutate(fuel = if_else(subsector %in% c("coal", "refined liquids"),
+                        "other-fossil", "low-carbon"),
+         fuel = if_else(subsector == "gas",
+                        "gas", fuel)) %>% 
+  group_by(Units, scenario, region, subsector, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup
+
+elec_gen_diff <- elec_gen %>% 
+  separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
+  pivot_wider(names_from = scen_gas) %>% 
+  mutate(diff = noRus - Default)  %>% 
+  group_by(scen_policy, region, year) %>% 
+  mutate(total_Default = sum(Default)) %>% 
+  ungroup %>% 
+  mutate(diff_prop = diff / total_Default)
+
+elec_gen_diff_grouped <- elec_gen_diff %>% 
+  mutate(fuel = if_else(subsector %in% c("coal", "refined liquids"),
+                             "other-fossil", "low-carbon"),
+         fuel = if_else(subsector == "gas",
+                        "gas", fuel)) %>% 
+  group_by(Units, scen_policy, region, fuel, year) %>% 
+  summarise(diff = sum(diff)) %>% 
+  ungroup
+
+elec_gen_prop_diff <- elec_gen %>% 
+  group_by(scenario, region, year) %>% 
+  mutate(value = sum(value)) %>% 
+  separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
+  pivot_wider(names_from = scen_gas) %>% 
+  mutate(diff = noRus - Default)
+
+# Gas ---------
 gas.dom.prod<-getQuery(prj,"primary energy consumption by region (avg fossil efficiency)") %>%
   rename_scen() %>%
   filter(grepl("natural gas", fuel)) %>%
@@ -157,8 +405,7 @@ gas.trade.lng<- getQuery(prj,"primary energy consumption by region (avg fossil e
 
 gas.all<-bind_rows(gas.dom.prod, gas.trade.pipeline.agg, gas.trade.lng)
 
-#----------------------------------------
-# Final energy by sector
+# Final energy by sector ----
 tfe.sector<- getQuery(prj,"total final energy by aggregate sector") %>%
   rename_scen() %>%
   left_join(regions %>% distinct(region, ab), by = "region") %>%
@@ -168,8 +415,7 @@ tfe.sector<- getQuery(prj,"total final energy by aggregate sector") %>%
   summarise(value = sum(value)) %>%
   ungroup()
 
-#----------------------------------------
-# Prices
+# Prices ----
 gas.price<-getQuery(prj,"final energy prices") %>%
   rename_scen() %>%
   filter(fuel == "wholesale gas") %>%
@@ -192,9 +438,8 @@ lng.price<-getQuery(prj,"prices of all markets") %>%
 price<-bind_rows(gas.price, lng.price)
 
 
-#----------------------------------------
-# CO2 emissions
-co2<-getQuery(prj,"CO2 emissions by sector (no bio)") %>%
+# CO2 emissions ----
+co2 <- getQuery(prj,"CO2 emissions by sector (no bio)") %>%
   rename_scen()%>%
   group_by(scenario, region, year, Units) %>%
   summarise(value = sum(value)) %>%
@@ -206,8 +451,60 @@ co2<-getQuery(prj,"CO2 emissions by sector (no bio)") %>%
   summarise(value = sum(value)) %>%
   ungroup()
 
-#----------------------------------------
-# CO2 emissions
+# GHG emissions ----
+luc <- getQuery(prj,"LUC emissions by region") %>% 
+  group_by(Units, scenario, region, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup %>% 
+  mutate(ghg = "LUC CO2",
+         Units = "MTC")
+
+ghg_total <- getQuery(prj,"nonCO2 emissions by region") %>%
+  bind_rows(luc) %>% 
+  filter(year >= 2015) %>% 
+  rename_scen() %>%
+  left_join(GWP, by = join_by(Units, ghg)) %>% 
+  mutate(value = value * GWP,
+         Units = "MtCO2e") %>% 
+  group_by(scenario, region, year, Units) %>%
+  summarise(value = sum(value, na.rm = T)) %>%
+  ungroup() %>%
+  left_join(regions %>% distinct(region, ab), by = "region") %>%
+  mutate(region = if_else(ab != "", ab, region)) %>%
+  select(-ab) %>%
+  group_by(scenario, region, year, Units) %>%
+  summarise(value = sum(value)) %>%
+  ungroup()
+
+ghg_by_gas <- getQuery(prj,"nonCO2 emissions by region") %>%
+  bind_rows(luc) %>% 
+  filter(year >= 2015) %>% 
+  rename_scen() %>%
+  left_join(GWP, by = join_by(Units, ghg)) %>% 
+  filter(!is.na(GWP)) %>% 
+  mutate(value = value * GWP,
+         Units = "MtCO2e") %>% 
+  group_by(scenario, region, group, year, Units) %>%
+  summarise(value = sum(value, na.rm = T)) %>%
+  ungroup() %>%
+  mutate(group = if_else(group == "CO2", "FFI CO2", group)) %>% 
+  left_join(regions %>% distinct(region, ab), by = "region") %>%
+  mutate(region = if_else(ab != "", ab, region)) %>%
+  select(-ab) %>%
+  group_by(scenario, region, group, year, Units) %>%
+  summarise(value = sum(value)) %>%
+  ungroup()
+
+ghg_by_gas_diff <- ghg_by_gas %>% 
+  separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
+  pivot_wider(names_from = scen_gas) %>% 
+  mutate(diff = noRus - Default) %>% 
+  group_by(scen_policy, region, year) %>% 
+  mutate(total_Default = sum(Default)) %>% 
+  ungroup %>% 
+  mutate(diff_prop = diff / total_Default)
+
+# Final Energy by Fuel -----
 tfe.fuel<-getQuery(prj,"final energy consumption by fuel") %>%
   rename_scen() %>%
   rename(sector = input) %>%
@@ -280,12 +577,250 @@ wholesale.gas.price <- gas.price %>%
 
 xlsx::write.xlsx(wholesale.gas.price, "wholesale.gas.price.xlsx")
   
-#-------------------------------------------
-#-------------------------------------------
-#-------------FIGURES-------------
-#-------------------------------------------
-#-------------------------------------------
-# Gas production and trade
+
+# Renewables ----------
+renew_in_pe <- pr.energy %>% 
+  rename_scen()  %>% 
+  filter(! fuel %in% c("elect_td_en", "gas pipeline")) %>% 
+  mutate(fuel_type = if_else(fuel %in% c("biomass", "nuclear", "hydro", "solar", "geothermal", "traditional biomass", "wind"),
+                             "low-carbon",
+                             "fossil")) %>% 
+  group_by(scenario, region, fuel_type, year) %>% 
+  summarise(value = sum(value)) %>% 
+  group_by(scenario, region, year) %>% 
+  mutate(value_pct = value / sum(value)) %>% 
+  ungroup %>% 
+  filter(fuel_type == "low-carbon") 
+
+
+
+renew_in_elec_pct <- getQuery(prj,"elec gen by gen tech") %>%
+  rename_scen() %>%
+  left_join(regions %>% distinct(region, ab), by = "region") %>%
+  mutate(region = if_else(ab != "", ab, region)) %>%
+  select(-ab) %>% 
+  mutate(fuel_type = if_else(subsector %in% c("biomass", "nuclear", "hydro", "solar", "geothermal", "rooftop_pv", "wind"),
+                             "low-carbon",
+                             "fossil")) %>% 
+  group_by(scenario, region, fuel_type, year) %>% 
+  summarise(value = sum(value)) %>% 
+  group_by(scenario, region, year) %>% 
+  mutate(value_pct = value / sum(value)) %>% 
+  ungroup %>% 
+  filter(fuel_type == "low-carbon") 
+
+renew_new_in_elec <- getQuery(prj, "elec gen by gen tech and cooling tech (new)") %>%
+  rename_scen() %>%
+  left_join(regions %>% distinct(region, ab), by = "region") %>%
+  mutate(region = if_else(ab != "", ab, region)) %>%
+  select(-ab)  %>% 
+  group_by(scenario, region, subsector, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup
+# Gas use by sector --------
+gas_by_sector <- getQuery(prj, "inputs by tech") %>% 
+  filter(grepl("gas", input),
+         !grepl("Madagascar", input),
+         !grepl("Madagascar", sector),
+         !input %in% c("gas pipeline", "gas processing"),
+         !sector %in% c("gas pipeline", "gas processing", 
+                        "gas trade statistical differences",
+                        "traded Afr_MidE pipeline gas",
+                        "traded EUR pipeline gas",
+                        "traded LA pipeline gas",
+                        "traded LNG",
+                        "traded N.Amer pipeline gas",
+                        "traded PAC pipeline gas",
+                        "traded RUS pipeline gas")) %>% 
+  left_join_error_no_match(gas_cons_sectors, by = join_by(sector)) %>% 
+  left_join(regions %>% distinct(region, ab), by = "region") %>%
+  mutate(region = if_else(ab != "", ab, region)) %>%
+  select(-ab) %>% 
+  group_by(Units, scenario, region, category, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup
+  
+gas_by_sector_diff <- gas_by_sector %>% 
+  separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
+  pivot_wider(names_from = scen_gas) %>% 
+  mutate(diff = noRus - Default)
+  
+  
+# Building output --------
+building_output <- getQuery(prj, "outputs by tech") %>% 
+  filter(grepl("resid|comm", sector),
+         year > 1,
+         output != "FE_RES") %>% # Weird error to correct 
+  left_join(regions %>% distinct(region, ab), by = "region") %>%
+  mutate(region = if_else(ab != "", ab, region)) %>%
+  select(-ab) %>% 
+  group_by(Units, scenario, region, subsector, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup
+
+building_output_diff <- building_output %>% 
+  separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
+  pivot_wider(names_from = scen_gas) %>% 
+  mutate(diff = noRus - Default)
+
+bld_out_diff_grouped <- building_output_diff %>% 
+  mutate(fuel = case_when(
+    subsector %in% c("coal", "refined liquids") ~ "fossil",
+    subsector %in% c("biomass", "district heat") ~ "other",
+    subsector == "gas" ~ "gas",
+    subsector == "electricity" ~ "electricity")) %>% 
+  group_by(Units, scen_policy, region, fuel, year) %>% 
+  summarise(diff = sum(diff)) %>% 
+  ungroup
+
+# Industrial energy use --------
+ind_sectors <- filter(gas_cons_sectors, category == "industry")$sector
+ind_sectors
+
+ind_en <- getQuery(prj, "inputs by tech") %>% 
+  filter(Units == "EJ",
+         !grepl("feedstocks", sector),
+         sector %in% ind_sectors) %>% 
+  left_join(regions %>% distinct(region, ab), by = "region") %>%
+  mutate(region = if_else(ab != "", ab, region)) %>%
+  select(-ab) %>% 
+  mutate(input = case_when(
+    grepl("H2", input) ~ "H2",
+    grepl("biomass", input) ~ "biomass",
+    grepl("coal", input) ~ "coal",
+    grepl("elect", input) ~ "electricity",
+    grepl("gas", input) ~ "gas",
+    grepl("refined liquids", input) ~ "refined liquids",
+    grepl("district heat", input) ~ "district heat")) %>% 
+  group_by(Units, scenario, region, input, year) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup
+
+ind_en_diff <- ind_en %>% 
+  separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
+  pivot_wider(names_from = scen_gas) %>% 
+  mutate(diff = noRus - Default)
+
+ind_en_diff_grouped <- ind_en_diff %>% 
+  mutate(fuel = case_when(
+    input %in% c("coal", "refined liquids") ~ "other fossil",
+    input == "biomass" ~ "biomass",
+    input == "district heat" ~ "district heat",
+    input == "gas" ~ "gas",
+    input %in% c("electricity", "H2") ~ "elec/H2")) %>% 
+  group_by(Units, scen_policy, region, fuel, year) %>% 
+  summarise(diff = sum(diff)) %>% 
+  ungroup
+# =======================================================================
+# ================================FIGURES=======================================
+# Electricity Final------
+elec_colors_grouped <- c("gas" = "dodgerblue3", "other-fossil" = "grey20", "low-carbon" = "gold")
+
+elec.diff.grouped.plot <- diff_plot(elec_gen_diff_grouped, 
+          colors = elec_colors_grouped, 
+          fill = "fuel", 
+          ylab = "EJ",
+          sum_line_lab = "Net Change in Generation",
+          title = "2030 Difference in Electricity Generation; noRusGas-Default (EJ)") %>% 
+  symmetrise_scale("y")
+
+elec.diff.grouped.plot
+
+ggsave("figures/elec_diff.png", 
+       plot = elec.diff.grouped.plot, 
+       height = 6, width = 9)
+
+# Building Final------
+bld_grpd_colors <- c("gas" = "dodgerblue3","fossil" = "grey20",  "electricity" = "goldenrod", 
+                "other" = "olivedrab")
+
+bld.out.diff.plot <- diff_plot(bld_out_diff_grouped, 
+                                    colors = bld_grpd_colors, 
+                                    fill = "fuel", 
+                                    ylab = "EJ",
+                                    sum_line_lab = "Net Change in Output",
+                                    title = "2030 Difference in Building Service Output; noRusGas-Default (EJ)") %>% 
+  symmetrise_scale("y")
+
+bld.out.diff.plot
+
+ggsave("figures/bld_out_diff.png", 
+       plot = bld.out.diff.plot, 
+       height = 6, width = 9)
+
+# Industry Final------
+ind_grpd_colors <- c("gas" = "dodgerblue3","other fossil" = "grey20",  "elec/H2" = "goldenrod", 
+                     "biomass" = "forestgreen", "district heat" = "brown4")
+
+ind.en.diff.plot <- diff_plot(ind_en_diff_grouped, 
+                               colors = ind_grpd_colors, 
+                               fill = "fuel", 
+                               ylab = "EJ",
+                               sum_line_lab = "Net Change in Energy Input",
+                               title = "2030 Difference in Industry Energy Use; noRusGas-Default (EJ)") %>% 
+  symmetrise_scale("y")
+
+ind.en.diff.plot
+
+ggsave("figures/ind_en_diff.png", 
+       plot = ind.out.diff.plot, 
+       height = 6, width = 9)
+
+# Primary Energy Final -----
+pr.en_grpd_colors <- c("gas" = "dodgerblue3","other fossil" = "grey20",  "low-carbon" = "gold")
+
+pr.en.diff.plot <- diff_plot(pr.energy_diff_grouped, 
+                              colors = pr.en_grpd_colors, 
+                              fill = "fuel", 
+                              ylab = "EJ",
+                              sum_line_lab = "Net Change in Energy",
+                              title = "2030 Difference in Primary Energy; noRusGas-Default (EJ)") %>% 
+  symmetrise_scale("y")
+
+pr.en.diff.plot
+
+ggsave("figures/pe_diff.png", 
+       plot = pr.en.diff.plot, 
+       height = 6, width = 9)
+
+# Emissions with LUC Final -------------
+ghg_colors_luc <- c("LUC CO2" = "green4", "FFI CO2" = "grey50", "CH4" = "purple3",
+                "N2O" = "dodgerblue4", "F-Gas" = "orange2")
+
+ghg.diff.luc.plot <- diff_plot(ghg_by_gas_diff, 
+                             colors = ghg_colors_luc, 
+                             fill = "group", 
+                             ylab = "MtCO2e",
+                             sum_line_lab = "Net Change in Emissions",
+                             title = "2030 Difference in GHG Emissions; noRusGas-Default (EJ)") %>% 
+  symmetrise_scale("y")
+
+ghg.diff.luc.plot
+
+ggsave("figures/ghg_all_diff.png", 
+       plot = ghg.diff.luc.plot, 
+       height = 6, width = 9)
+
+# Emissions no LUC Final -------------
+ghg_colors <- c( "FFI CO2" = "grey50", "CH4" = "purple3",
+                "N2O" = "dodgerblue4", "F-Gas" = "orange2")
+
+ghg.noLUC.diff.plot <- diff_plot(ghg_by_gas_diff %>% filter(group != "LUC CO2"), 
+                           colors = ghg_colors, 
+                           fill = "group", 
+                           ylab = "MtCO2e",
+                           sum_line_lab = "Net Change in Emissions",
+                           title = "2030 Difference in GHG Emissions; noRusGas-Default (EJ)") %>% 
+  symmetrise_scale("y")
+
+ghg.noLUC.diff.plot
+
+ggsave("figures/ghg_noLUC_diff.png", 
+       plot = ghg.noLUC.diff.plot, 
+       height = 6, width = 9)
+
+# ===================================DRAFTS====================================
+# Gas production and trade ----
 gas.plot<-ggplot(gas.all %>% filter(region %in% selected_regions,
                           year <= final_year,
                           year >= final_base_year), aes(x = as.numeric(year), y = value, color = scenario)) + 
@@ -329,11 +864,7 @@ gas.pipelines.plot<-ggplot(gas.trade.pipeline %>% filter(region %in% selected_re
 
 ggsave("figures/gas_ImpPipe_byPipe.tiff", gas.pipelines.plot, "tiff", dpi = 200)
 
-#-------------------------------------------
-#-------------------------------------------
-# Prices:
-
-# Gas pipeline
+# Gas pipeline prices ----
 price.pipeline<-ggplot(gas.price %>% filter(region %in% selected_regions,
                                     year <= final_year,
                                     year >= final_base_year), aes(x = as.numeric(year), y = value, color = scenario)) + 
@@ -372,11 +903,7 @@ price.lng<-ggplot(lng.price %>% filter(year <= final_year,
 
 ggsave("figures/GasPrice_LNG.tiff", price.lng, "tiff", dpi = 200)
 
-#-------------------------------------------
-#-------------------------------------------
-# Other
-
-# TFE by fuel
+# TFE by fuel ----
 tfe.fuel.plot<-ggplot(tfe.fuel %>% filter(region %in% selected_regions,
                                        year == 2030), aes(x = scenario, y = value, color = sector, fill = sector)) + 
   geom_bar(stat = "identity", position = "stack") + 
@@ -395,7 +922,7 @@ tfe.fuel.plot<-ggplot(tfe.fuel %>% filter(region %in% selected_regions,
 
 tfe.fuel.plot
 
-ggsave("figures/tfe_bySector_byReg_2030.tiff", tfe.fuel.plot, "tiff", dpi = 200)
+# ggsave("figures/tfe_bySector_byReg_2030.tiff", tfe.fuel.plot, "tiff", dpi = 200)
 
 
 # Final energy by end-use sector:
@@ -420,29 +947,404 @@ tfe.plot
 
 ggsave("figures/tfe_bySector_byReg.tiff", tfe.plot, "tiff", dpi = 200)
 
-# CO2 emissions
-co2.plot<-ggplot(co2 %>% filter(region %in% selected_regions,
-                                      year <= final_year,
-                                      year >= final_base_year), aes(x = as.numeric(year), y = value, color = scenario)) + 
-  geom_point() + 
-  geom_line() + 
-  facet_wrap(~ region) + 
+# Emissions -----
+ghg.plot <- ggplot(ghg_by_gas %>% filter(region %in% selected_regions,
+                                       year == 2030,
+                                       group != "LUC CO2"), 
+                   aes(x = scenario, y = value, color = group, fill = group)) + 
+  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
+  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
+  facet_wrap(~ region, scales = "free") + 
   theme_bw() + 
-  labs(x = "", y = "MTC") + 
+  labs(x = "", y = "MtCO2e") + 
   theme(legend.position = "bottom",
         legend.title = element_blank(),
-        strip.text.x = element_text(size = 10),
+        strip.text = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 5, vjust = 0.5),
+        axis.text.y = element_text(size = 9)) + 
+  scale_color_manual(values = my_pal_ghg) +
+  scale_fill_manual(values = my_pal_ghg) +
+  ggtitle("2030 GHG Emissions by gas, region (MtCO2e)")
+  
+  
+ghg.plot
+
+ghg.diff.plot <- ggplot(ghg_by_gas_diff %>% 
+                          filter(region %in% selected_regions,
+                                 year == 2030, 
+                                 group != "LUC CO2"), 
+                            aes(x = scen_policy, y = diff, color = group, fill = group)) + 
+  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
+  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
+  facet_wrap(~ region, scales = "free") + 
+  theme_bw() + 
+  geom_hline(yintercept = 0, linetype = "longdash", linewidth = 0.75) +
+  labs(x = "", y = "MtCO2e") + 
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        strip.text = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 5, vjust = 0.5),
+        axis.text.y = element_text(size = 9)) + 
+  scale_color_manual(values = my_pal_ghg) +
+  scale_fill_manual(values = my_pal_ghg) +
+  ggtitle("2030 GHG Emissions Difference by gas, region; NoRus-Default (MtCO2e)")
+
+ghg.diff.plot
+
+ghg_luc.diff.plot <- ggplot(ghg_by_gas_diff %>% 
+                              filter(region %in% selected_regions,
+                                     year == 2030), 
+                   aes(x = scen_policy, y = diff, color = group, fill = group)) + 
+  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
+  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
+  facet_wrap(~ region, scales = "free") + 
+  theme_bw() + 
+  geom_hline(yintercept = 0, linetype = "longdash", linewidth = 0.75) +
+  labs(x = "", y = "MtCO2e") + 
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        strip.text = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 5, vjust = 0.5),
+        axis.text.y = element_text(size = 9)) + 
+  scale_color_manual(values = my_pal_ghg_luc) +
+  scale_fill_manual(values = my_pal_ghg_luc) +
+  ggtitle("2030 GHG Emissions Difference by gas, region; NoRus-Default (MtCO2e)")
+
+ghg_luc.diff.plot
+
+ghg.diff.plot.pct <- ggplot(ghg_by_gas_diff %>% filter(region %in% selected_regions,
+                                                   year == 2030,
+                                                   group != "LUC CO2"), 
+                        aes(x = scen_policy, y = diff_prop, color = group, fill = group)) + 
+  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
+  scale_y_continuous(labels = scales::percent) +
+  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
+  facet_wrap(~ region, scales = "free") + 
+  theme_bw() + 
+  geom_hline(yintercept = 0, linetype = "longdash", linewidth = 0.75) +
+  labs(x = "", y = "% Change from Default Emissions") + 
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        strip.text = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 5, vjust = 0.5),
+        axis.text.y = element_text(size = 9)) + 
+  scale_color_manual(values = my_pal_ghg) +
+  scale_fill_manual(values = my_pal_ghg) +
+  ggtitle("2030 GHG Emissions Difference by gas, region; NoRus-Default (%)")
+
+ghg.diff.plot.pct
+
+ghg_luc.diff.plot.pct <- ggplot(ghg_by_gas_diff %>% 
+                                  filter(region %in% selected_regions,
+                                         year == 2030), 
+                            aes(x = scen_policy, y = diff_prop, color = group, fill = group)) + 
+  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
+  scale_y_continuous(labels = scales::percent) +
+  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
+  facet_wrap(~ region, scales = "free") + 
+  theme_bw() + 
+  geom_hline(yintercept = 0, linetype = "longdash", linewidth = 0.75) +
+  labs(x = "", y = "% Change from Default Emissions") + 
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        strip.text = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 5, vjust = 0.5),
+        axis.text.y = element_text(size = 9)) + 
+  scale_color_manual(values = my_pal_ghg_luc) +
+  scale_fill_manual(values = my_pal_ghg_luc) +
+  ggtitle("2030 GHG Emissions Difference by gas, region; NoRus-Default (%)")
+
+ghg_luc.diff.plot.pct
+
+# Electricity ------
+# elec_factor <- c("coal", "gas", "refined liquids", "nuclear", "biomass", "hydro", "wind", "solar", "geothermal")
+elec_colors <- c("coal" = "grey20", "gas" = "dodgerblue3", "refined liquids" = "firebrick2", 
+                 "nuclear" = "orange2", "biomass" = "forestgreen", "hydro" = "skyblue", 
+                "wind" = "purple3", "solar" = "gold", "geothermal" = "brown4")
+elec.plot <- ggplot(elec_gen %>% filter(region %in% selected_regions,
+                                         year == 2030), 
+                   aes(x = scenario, y = value, color = factor(subsector, names(elec_colors)), 
+                       fill = factor(subsector, names(elec_colors)))) + 
+  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
+  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
+  facet_wrap(~ region, scales = "free") + 
+  theme_bw() + 
+  labs(x = "", y = "EJ") + 
+  guides(colour = guide_legend(nrow = 1)) + 
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        strip.text = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 5, vjust = 0.5),
+        axis.text.y = element_text(size = 9)) + 
+  scale_color_manual(values = elec_colors) +
+  scale_fill_manual(values = elec_colors) +
+  ggtitle("2030 Electricity Generation by fuel, region (EJ)")
+
+elec.plot
+
+elec.diff.plot <- ggplot(elec_gen_diff %>% filter(region %in% selected_regions,
+                                        year == 2030),
+                                        # !subsector %in% c("coal", "gas", "refined liquids")), 
+                    aes(x = scen_policy, y = diff, color = factor(subsector, names(elec_colors)), 
+                        fill = factor(subsector, names(elec_colors)))) + 
+  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
+  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
+  facet_wrap(~ region, scales = "free") + 
+  theme_bw() + 
+  labs(x = "", y = "EJ") + 
+  guides(colour = guide_legend(nrow = 1)) + 
+  geom_hline(yintercept = 0, linetype = "longdash", linewidth = 0.75) +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        strip.text = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 5, vjust = 0.5),
+        axis.text.y = element_text(size = 9)) + 
+  scale_color_manual(values = elec_colors) +
+  scale_fill_manual(values = elec_colors) +
+  ggtitle("2030 Difference in Electricity Generation by fuel, region (EJ; noRusGas-Default)")
+
+symmetrise_scale(elec.diff.plot, "y")
+
+
+elec.diff.pct.plot <- ggplot(elec_gen_diff %>% filter(region %in% selected_regions,
+                                                  year == 2030),
+                         # !subsector %in% c("coal", "gas", "refined liquids")), 
+                         aes(x = scen_policy, y = diff_prop, color = factor(subsector, names(elec_colors)), 
+                             fill = factor(subsector, names(elec_colors)))) + 
+  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
+  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
+  facet_wrap(~ region, scales = "free") + 
+  theme_bw() + 
+  labs(x = "", y = "% of 2030 Elec Gen in Default Scenario") + 
+  guides(colour = guide_legend(nrow = 1)) + 
+  geom_hline(yintercept = 0, linetype = "longdash", linewidth = 0.75) +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        strip.text = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 5, vjust = 0.5),
+        axis.text.y = element_text(size = 9)) + 
+  scale_color_manual(values = elec_colors) +
+  scale_fill_manual(values = elec_colors) +
+  scale_y_continuous(labels = scales::percent) +
+  ggtitle("2030 Difference in Electricity Generation by fuel, region (%; noRusGas-Default)")
+
+elec.diff.pct.plot
+
+# Renewables -----
+renewables.pct.pe.plot <- ggplot(renew_in_pe %>% filter(region %in% selected_regions,
+                          year <= final_year,
+                          year >= final_base_year), aes(x = as.numeric(year), y = value_pct, color = scenario)) + 
+  geom_point() + 
+  geom_line() + 
+  facet_wrap( ~ region, scales = "free") + 
+  theme_bw() + 
+  labs(x = "", y = "Percent of Primary Energy") + 
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        strip.text.x = element_text(size = 7),
         axis.title.y = element_text(size = 12),
-        axis.text.x = element_text(size = 9, angle = 90),
-        axis.text.y = element_text(size = 10)) + 
+        axis.text.x = element_text(size = 7, angle = 90, vjust = .5),
+        axis.text.y = element_text(size = 9)) + 
   scale_color_tron() +
-  ggtitle("CO2 emissions by region and period (MTC)")
+  scale_y_continuous(labels = scales::percent) +
+  ggtitle("Low-carbon energy, as percent of total primary energy (fossil equivalent)")
 
-ggsave("figures/co2_byReg.tiff", co2.plot, "tiff", dpi = 200)
+renewables.pct.pe.plot
+
+low.carbon.elec.plot <-  ggplot(renew_in_elec_pct %>% filter(region %in% selected_regions,
+                                                           year <= final_year,
+                                                           year >= final_base_year), aes(x = as.numeric(year), y = value_pct, color = scenario)) + 
+  geom_point() + 
+  geom_line() + 
+  facet_wrap( ~ region, scales = "free") + 
+  theme_bw() + 
+  labs(x = "", y = "Percent of Primary Energy") + 
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        strip.text.x = element_text(size = 7),
+        axis.title.y = element_text(size = 12),
+        axis.text.x = element_text(size = 7, angle = 90, vjust = .5),
+        axis.text.y = element_text(size = 9)) + 
+  scale_color_tron() +
+  scale_y_continuous(labels = scales::percent) +
+  ggtitle("Low-carbon power generation, as percent of total power generation")
 
 
-#=========================================================
-# Calculate underutilization
+low.carbon.elec.plot
+
+
+
+# Gas consumption -------
+gas_colors <- c("refining" = "grey20", "H2" = "purple3", "electricity" = "goldenrod", 
+                 "industry" = "dodgerblue3", "buildings" = "forestgreen", "transport" = "brown4")
+gas.cons.plot <- ggplot(gas_by_sector %>% filter(region %in% selected_regions,
+                                        year == 2030), 
+                    aes(x = scenario, y = value, color = factor(category, names(gas_colors)), 
+                        fill = factor(category, names(gas_colors)))) + 
+  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
+  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
+  facet_wrap(~ region, scales = "free") + 
+  theme_bw() + 
+  labs(x = "", y = "EJ") + 
+  guides(colour = guide_legend(nrow = 1)) + 
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        strip.text = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 5, vjust = 0.5),
+        axis.text.y = element_text(size = 9)) + 
+  scale_color_manual(values = gas_colors) +
+  scale_fill_manual(values = gas_colors) +
+  ggtitle("2030 Gas Consumption by sector, region (EJ)")
+
+gas.cons.plot
+
+gas.cons.diff.plot <- ggplot(gas_by_sector_diff %>% filter(region %in% selected_regions,
+                                                  year == 2030),
+                         # !subsector %in% c("coal", "gas", "refined liquids")), 
+                         aes(x = scen_policy, y = diff, color = factor(category, names(gas_colors)), 
+                             fill = factor(category, names(gas_colors)))) + 
+  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
+  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
+  facet_wrap(~ region, scales = "free") + 
+  theme_bw() + 
+  labs(x = "", y = "EJ") + 
+  guides(colour = guide_legend(nrow = 1)) + 
+  geom_hline(yintercept = 0, linewidth = 0.75) +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        strip.text = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 9, vjust = 0.5),
+        axis.text.y = element_text(size = 9)) + 
+  scale_color_manual(values = gas_colors) +
+  scale_fill_manual(values = gas_colors) +
+  ggtitle("2030 Difference in Gas Consumption; noRusGas-Default (EJ)")
+
+gas.cons.diff.plot
+
+ggsave("figures/gas_cons_sector_diff.png", plot = gas.cons.diff.plot, height = 6, width = 9)
+
+# Building Output ------
+bld_colors <- c("coal" = "grey20",  "refined liquids" = "firebrick2", "gas" = "dodgerblue3",
+                 "biomass" = "forestgreen", "electricity" = "goldenrod", 
+                 "district heat" = "brown4")
+bld.out.plot <- ggplot(building_output %>% filter(region %in% selected_regions,
+                                        year == 2030), 
+                    aes(x = scenario, y = value, 
+                        color = factor(subsector, names(bld_colors)), 
+                        fill = factor(subsector, names(bld_colors)))) + 
+  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
+  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
+  facet_wrap(~ region, scales = "free") + 
+  theme_bw() + 
+  labs(x = "", y = "EJ") + 
+  guides(colour = guide_legend(nrow = 1)) + 
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        strip.text = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 5, vjust = 0.5),
+        axis.text.y = element_text(size = 9)) + 
+  scale_color_manual(values = bld_colors) +
+  scale_fill_manual(values = bld_colors) +
+  ggtitle("2030 Building Service Output by fuel, region (EJ)")
+
+bld.out.plot
+
+bld.out.diff.plot <- ggplot(building_output_diff %>% filter(region %in% selected_regions,
+                                                  year == 2030),
+                         # !subsector %in% c("coal", "gas", "refined liquids")), 
+                         aes(x = scen_policy, y = diff, color = factor(subsector, names(bld_colors)), 
+                             fill = factor(subsector, names(bld_colors)))) + 
+  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
+  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
+  facet_wrap(~ region, scales = "free") + 
+  theme_bw() + 
+  labs(x = "", y = "EJ") + 
+  guides(colour = guide_legend(nrow = 1)) + 
+  geom_hline(yintercept = 0, linetype = "longdash", linewidth = 0.75) +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        strip.text = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 5, vjust = 0.5),
+        axis.text.y = element_text(size = 9)) + 
+  scale_color_manual(values = bld_colors) +
+  scale_fill_manual(values = bld_colors) +
+  ggtitle("2030 Difference in Building Service Output by fuel, region (EJ; noRusGas-Default)")
+
+bld.out.diff.plot
+
+
+
+# Industry Input ------
+ind_colors <- c("coal" = "grey20",  "refined liquids" = "firebrick2", "gas" = "dodgerblue3",
+                "biomass" = "forestgreen", "electricity" = "goldenrod", "H2" = "purple3",
+                "district heat" = "brown4")
+colors <- ind_colors
+ind.in.plot <- ggplot(ind_en %>% filter(region %in% selected_regions,
+                                                  year == 2030), 
+                       aes(x = scenario, y = value, 
+                           color = factor(input, names(colors)), 
+                           fill = factor(input, names(colors)))) + 
+  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
+  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
+  facet_wrap(~ region, scales = "free") + 
+  theme_bw() + 
+  labs(x = "", y = "EJ") + 
+  guides(colour = guide_legend(nrow = 1)) + 
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        strip.text = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 5, vjust = 0.5),
+        axis.text.y = element_text(size = 9)) + 
+  scale_color_manual(values = colors) +
+  scale_fill_manual(values = colors) +
+  ggtitle("2030 Industry Energy Use by fuel, region (EJ)")
+
+ind.in.plot
+
+ind.in.diff.plot <- ggplot(ind_en_diff %>% filter(region %in% selected_regions,
+                                                            year == 2030),
+                            # !subsector %in% c("coal", "gas", "refined liquids")), 
+                            aes(x = scen_policy, y = diff, 
+                                color = factor(input, names(colors)), 
+                                fill = factor(input, names(colors)))) + 
+  geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
+  # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
+  facet_wrap(~ region, scales = "free") + 
+  theme_bw() + 
+  labs(x = "", y = "EJ") + 
+  guides(colour = guide_legend(nrow = 1)) + 
+  geom_hline(yintercept = 0, linetype = "longdash", linewidth = 0.75) +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        strip.text = element_text(size = 10),
+        axis.title.y = element_text(size = 10),
+        axis.text.x = element_text(size = 5, vjust = 0.5),
+        axis.text.y = element_text(size = 9)) + 
+  scale_color_manual(values = colors) +
+  scale_fill_manual(values = colors) +
+  ggtitle("2030 Difference in Industry Energy Use by fuel, region (EJ; noRusGas-Default)")
+
+ind.in.diff.plot
+
+
+
+
+# =======================================================================
+# =================================RETIREMENTS AND UTILIZATION======================================
+# Calculate underutilization ----
 tra_gas_tech_vintage <- getQuery(prj,"traded gas by tech and vintage") %>% #export capacity 
   rename_scen() %>%
   tidyr::separate(col = technology, into = c("technology", "vintage"), sep = ",") %>%
