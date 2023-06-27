@@ -43,7 +43,7 @@ To reproduce the results and figures shown in Sampedro et al.,
 1. Install `R` here - https://www.r-project.org/
 2. Install `R studio` from here - https://www.rstudio.com/
 3. Download input data from Zenodo
-4. Run the script called `Results_processing` chunk by chunk to generate the figures.  
+4. Run the script called `Results_gas_processing.R` chunk by chunk to generate the figures.  
 
 Note that figures are generated for a suite of representative regions. The user could easily genearte figures for any of the 32 GCAM regions.
 
