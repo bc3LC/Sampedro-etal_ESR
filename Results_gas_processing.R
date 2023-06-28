@@ -924,7 +924,7 @@ pr.en_colors <- c("biomass" = "forestgreen", "coal" = "grey20",  "geothermal" = 
 
 ggplot(pr.energy %>% filter(region %in% selected_regions,
                             grepl("CP_Default", scenario),
-                            year >= 2020,
+                            year >= 2015,
                             year <= 2030) %>%
          mutate(scenario = gsub("_Default", "", scenario),
                 year = as.factor(year)), 
@@ -943,7 +943,7 @@ ggplot(pr.energy %>% filter(region %in% selected_regions,
         legend.text =  element_text(size = 10),
         strip.text = element_text(size = 13),
         axis.title.y = element_text(size = 13),
-        axis.text.x = element_text(size = 10, vjust = 0.5),
+        axis.text.x = element_text(size = 10, vjust = 0.5, angle = 45),
         axis.text.y = element_text(size = 12)) + 
   scale_color_manual(values = pr.en_colors) +
   scale_fill_manual(values = pr.en_colors) +
@@ -953,17 +953,17 @@ ggsave("figures/TPE_CP.tiff", last_plot(), "tiff", dpi = 200)
 
 # GHG
 ghg_colors_new <- c( "FFI CO2" = "dodgerblue4", "CH4" = "purple3",
-                     "N2O" = "tomato3", "F-Gas" = "goldenrod2",
-                     "LUC CO2" = "forestgreen")
+                     "N2O" = "tomato3", "F-Gas" = "goldenrod2")
 
 ggplot(ghg_by_gas %>% filter(region %in% selected_regions,
                              grepl("CP_Default", scenario),
-                             year >= 2020,
-                             year <= 2030) %>%
+                             year >= 2015,
+                             year <= 2030,
+                             group != "LUC CO2") %>%
          mutate(scenario = gsub("_Default", "", scenario),
                 year = as.factor(year)), 
-       aes(x = year, y = value, color = factor(group, levels = c("FFI CO2", "LUC CO2", "CH4", "N2O", "F-Gas")), 
-           fill = factor(group, levels = c("FFI CO2", "LUC CO2", "CH4", "N2O", "F-Gas")))) + 
+       aes(x = year, y = value, color = factor(group, levels = c("FFI CO2", "CH4", "N2O", "F-Gas")), 
+           fill = factor(group, levels = c("FFI CO2", "CH4", "N2O", "F-Gas")))) + 
   geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
   # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
   facet_grid(~ region) + 
@@ -975,7 +975,7 @@ ggplot(ghg_by_gas %>% filter(region %in% selected_regions,
         legend.text =  element_text(size = 10),
         strip.text = element_text(size = 13),
         axis.title.y = element_text(size = 13),
-        axis.text.x = element_text(size = 10, vjust = 0.5),
+        axis.text.x = element_text(size = 10, vjust = 0.5, angle = 45),
         axis.text.y = element_text(size = 12)) + 
   scale_color_manual(values = ghg_colors_new) +
   scale_fill_manual(values = ghg_colors_new) +
