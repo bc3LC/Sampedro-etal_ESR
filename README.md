@@ -2,7 +2,7 @@ ADD Zenodo Badge (connected to this GitHub repo)
 
 ## Sampedro-etal_ESR
 
-**Integrated assessment of Russian gas cut-off for the European energy system and global gas infrastructure**
+**Integrated assessment of Russian gas cut-off for the European energy system**
 
 Jon Sampedro<sup>1\*</sup>, Dirk-Jan Van de Ven<sup>1</sup>, Russell Horowitz<sup>1</sup>, Clàudia Rodés-Bachs<sup>2</sup>, Natasha Frilingou<sup>2</sup>, Alexandros Nikas<sup>2</sup>, Matthew Binsted<sup>3</sup>, Gokul Iyer<sup>3</sup>, and Brinda Yarlagadda<sup>3</sup>, 
 
@@ -15,17 +15,13 @@ Jon Sampedro<sup>1\*</sup>, Dirk-Jan Van de Ven<sup>1</sup>, Russell Horowitz<su
 \* corresponding author:  jon.sampedro@bc3research.org
 
 ## Abstract
-ADD ABSTRACT
+The reduction of European Union's pipeline gas imports from Russia as a consequence of the Russo-Ukrainian war has had severe economy-wide implications for the EU. Using a multisector integrated assessment model (GCAM), we find that a potential complete cut-off of Russian pipeline gas exports unevenly impacts the energy mix, prices, and trade flows of different subregions within the EU, depending on their access to alternative gas pipelines and LNG infrastructure. Moreover, there are also large changes in the volume and geographical distribution of global gas infrastructure capacity additions and stranded assets. Our results show that by significantly reducing demand for natural gas, the EU Fit-for-55 policy framework already delivers good resilience against a complete and persistent cut-off of Russian pipeline gas. However, further improvements of energy efficiency and renewable targets could further soften impacts, while bringing climate objectives closer in sight.
 
 ## Code reference
 Available at Zenodo: ADD LINK to this repo linked in Zenodo
 
 Add citation
 
-## Data reference
-Not needed? If yes, upload it to zeneodo as "Input data of" (Link to Zenodo)
-
-Citation to Zenodo
 
 ## Contributing modeling software
 | Model | Version | Repository Link 
@@ -37,7 +33,7 @@ Citation to Zenodo
 | gcamdata | 1.0| https://github.com/JGCRI/gcamdata | 
 | rgcam | 1.2.0| https://github.com/JGCRI/rgcam | 
 
-## Reproduce my experiment
+## Reproduce the experiment
 To reproduce the results and figures shown in Sampedro et al.,
 
 1. Install `R` here - https://www.r-project.org/
