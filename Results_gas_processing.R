@@ -1494,7 +1494,7 @@ ggplot(data = filter(cum_global_total_ret, year <= 2030) %>%
   geom_bar(position = position_stack(reverse = TRUE), stat = "identity")+
   stat_identity(yintercept=0, geom='hline', inherit.aes=TRUE, size = 1)+
   facet_wrap(~scenario, nrow = 1, scales = "fixed")+
-  labs(title = "B) Retirements", x = "", y = "MTPA") +
+  labs(title = "B) Underutilised gas infrastructure", x = "", y = "MTPA") +
   theme_bw()+
   theme(axis.text = element_text(hjust = .5, vjust = 0.5, size = 12),
         strip.text = element_text(size = 12),
