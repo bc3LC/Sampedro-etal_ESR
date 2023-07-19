@@ -1,4 +1,4 @@
-ADD Zenodo Badge (connected to this GitHub repo)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8163958.svg)](https://doi.org/10.5281/zenodo.8163958)
 
 ## Sampedro-etal_ESR
 
@@ -18,9 +18,9 @@ Jon Sampedro<sup>1\*</sup>, Dirk-Jan Van de Ven<sup>1</sup>, Russell Horowitz<su
 The reduction of European Union's pipeline gas imports from Russia as a consequence of the Russo-Ukrainian war has had severe economy-wide implications for the EU. Using a multisector integrated assessment model (GCAM), we find that a potential complete cut-off of Russian pipeline gas exports unevenly impacts the energy mix, prices, and trade flows of different subregions within the EU, depending on their access to alternative gas pipelines and LNG infrastructure. Moreover, there are also large changes in the volume and geographical distribution of global gas infrastructure capacity additions and stranded assets. Our results show that by significantly reducing demand for natural gas, the EU Fit-for-55 policy framework already delivers good resilience against a complete and persistent cut-off of Russian pipeline gas. However, further improvements in energy efficiency and renewable targets could further soften impacts, while bringing climate objectives closer in sight.
 
 ## Code reference
-Available at Zenodo: ADD LINK to this repo linked in Zenodo
+Available at Zenodo: https://zenodo.org/record/8163958
 
-Add citation
+Clàudia Rodés Bachs, russellhz, & jonsampedro. (2023). bc3LC/Sampedro-etal_ESR: 1.0.0 (1.0.0). Zenodo. https://doi.org/10.5281/zenodo.8163958
 
 
 ## Contributing modeling software
