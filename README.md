@@ -2,7 +2,7 @@
 
 ## Sampedro-etal_ESR
 
-**Integrated assessment of Russian gas cut-off for the European energy system**
+**Energy system analysis of cutting off Russian gas supply to the European Union**
 
 Jon Sampedro<sup>1\*</sup>, Dirk-Jan Van de Ven<sup>1</sup>, Russell Horowitz<sup>1</sup>, Clàudia Rodés-Bachs<sup>2</sup>, Natasha Frilingou<sup>2</sup>, Alexandros Nikas<sup>2</sup>, Matthew Binsted<sup>3</sup>, Gokul Iyer<sup>3</sup>, and Brinda Yarlagadda<sup>3</sup>, 
 
