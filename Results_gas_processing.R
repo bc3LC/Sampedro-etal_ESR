@@ -16,14 +16,14 @@ library(scatterpie)
 library(ggnewscale)
 
 # Extract queries from db using rgcam/load project file ----
-DAT_NAME <- "paperGas_fin2_newQueries.dat"
+DAT_NAME <- "paperGas_fin4_newQueries.dat"
 
 
 if(file.exists(DAT_NAME)){
   prj <- rgcam::loadProject(DAT_NAME)
 } else{
   conn <- localDBConn('./gas_crisis_analysis/db/', 
-                      'database_basexdb_iamCompact_paperGas_fin2/')
+                      'database_basexdb_iamCompact_paperGas_fin4/')
   for(scen in listScenariosInDB(conn)$name){
     prj <- addScenario(conn, DAT_NAME, scen, "queries/queries_gas_new.xml")
   }
@@ -34,7 +34,7 @@ QUERY_LIST <- listQueries(prj)
 
 #-----------------------
 # Read previous project for non re-mapped gas outputs:
-prj_noRemap <- rgcam::loadProject("paperGas_fin2.dat")
+prj_noRemap <- rgcam::loadProject("paperGas_fin4.dat")
 
 gas.trade.data <- getQuery(prj_noRemap,"primary energy consumption by region (avg fossil efficiency)")
 
@@ -132,7 +132,7 @@ pr.energy <- getQuery(prj,"primary energy consumption by region (avg fossil effi
 pr.energy_diff <- pr.energy %>% 
   separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
   pivot_wider(names_from = scen_gas) %>% 
-  mutate(diff = noRus - Default)
+  mutate(diff = NoRus - Default)
 
 pr.energy_diff_grouped <- pr.energy_diff %>% 
   mutate(fuel = case_when(
@@ -167,7 +167,7 @@ elec_gen_grouped <- elec_gen %>%
 elec_gen_diff <- elec_gen %>% 
   separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
   pivot_wider(names_from = scen_gas) %>% 
-  mutate(diff = noRus - Default)  %>% 
+  mutate(diff = NoRus - Default)  %>% 
   group_by(scen_policy, region, year) %>% 
   mutate(total_Default = sum(Default)) %>% 
   ungroup %>% 
@@ -187,7 +187,7 @@ elec_gen_prop_diff <- elec_gen %>%
   mutate(value = sum(value)) %>% 
   separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
   pivot_wider(names_from = scen_gas) %>% 
-  mutate(diff = noRus - Default)
+  mutate(diff = NoRus - Default)
 
 # Gas ---------
 
@@ -331,7 +331,7 @@ ghg_by_gas <- getQuery(prj,"nonCO2 emissions by region") %>%
 ghg_by_gas_diff <- ghg_by_gas %>% 
   separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
   pivot_wider(names_from = scen_gas) %>% 
-  mutate(diff = noRus - Default) %>% 
+  mutate(diff = NoRus - Default) %>% 
   group_by(scen_policy, region, year) %>% 
   mutate(total_Default = sum(Default)) %>% 
   ungroup %>% 
@@ -366,14 +366,14 @@ energy_flows <- getQuery(prj, "primary energy consumption by region (avg fossil 
   mutate(fuel = gsub("traded", "b imported", fuel),
          fuel = if_else(grepl("natural gas", fuel), "b domestic natural gas", fuel)) %>%
   spread(scenario, value) %>%
-  replace_na(list(CP_noRus = 0)) %>%
-  mutate(CP_noRus = if_else(CP_noRus < 1E-7, 0, CP_noRus))
+  replace_na(list(CP_NoRus = 0)) %>%
+  mutate(CP_NoRus = if_else(CP_NoRus < 1E-7, 0, CP_NoRus))
 
 
 energy_flows_tot <- energy_flows %>%
   group_by(region, year, Units) %>%
   summarise(CP_Default = sum(CP_Default),
-            CP_noRus = sum(CP_noRus)) %>%
+            CP_NoRus = sum(CP_NoRus)) %>%
   ungroup() %>%
   mutate(fuel = "z All tpe")
 
@@ -381,7 +381,7 @@ energy_flows_gas <- energy_flows %>%
   filter(grepl("imported", fuel) | grepl("natural gas", fuel)) %>%
   group_by(region, year, Units) %>%
   summarise(CP_Default = sum(CP_Default),
-            CP_noRus = sum(CP_noRus)) %>%
+            CP_NoRus = sum(CP_NoRus)) %>%
   ungroup() %>%
   mutate(fuel = "b total gas")
   
@@ -390,8 +390,8 @@ flows_an <- bind_rows(energy_flows,
                       energy_flows_tot,
                       energy_flows_gas) %>%
   arrange(region, year, fuel) %>%
-  mutate(diff = CP_noRus - CP_Default,
-         `%diff` = (CP_noRus - CP_Default) / CP_Default)
+  mutate(diff = CP_NoRus - CP_Default,
+         `%diff` = (CP_NoRus - CP_Default) / CP_Default)
 
 
 #xlsx::write.xlsx(flows_an, "flows_an.xlsx")
@@ -405,8 +405,8 @@ wholesale.gas.price <- gas.price %>%
          grepl("CP", scenario)) %>%
   spread(scenario, value) %>%
   arrange(region, year) %>%
-  mutate(diff = CP_noRus - CP_Default,
-         `%diff` = (CP_noRus - CP_Default) / CP_Default)
+  mutate(diff = CP_NoRus - CP_Default,
+         `%diff` = (CP_NoRus - CP_Default) / CP_Default)
 
 # xlsx::write.xlsx(wholesale.gas.price, "wholesale.gas.price.xlsx")
   
@@ -478,7 +478,7 @@ gas_by_sector <- getQuery(prj, "inputs by tech") %>%
 gas_by_sector_diff <- gas_by_sector %>% 
   separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
   pivot_wider(names_from = scen_gas) %>% 
-  mutate(diff = noRus - Default)
+  mutate(diff = NoRus - Default)
   
   
 # Building output --------
@@ -496,7 +496,7 @@ building_output <- getQuery(prj, "outputs by tech") %>%
 building_output_diff <- building_output %>% 
   separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
   pivot_wider(names_from = scen_gas) %>% 
-  mutate(diff = noRus - Default)
+  mutate(diff = NoRus - Default)
 
 bld_out_diff_grouped <- building_output_diff %>% 
   mutate(fuel = case_when(
@@ -534,7 +534,7 @@ ind_en <- getQuery(prj, "inputs by tech") %>%
 ind_en_diff <- ind_en %>% 
   separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
   pivot_wider(names_from = scen_gas) %>% 
-  mutate(diff = noRus - Default)
+  mutate(diff = NoRus - Default)
 
 ind_en_diff_grouped <- ind_en_diff %>% 
   mutate(fuel = case_when(
@@ -561,8 +561,8 @@ gas_change <- getQuery(prj, "inputs by sector") %>%
   ungroup %>% 
   separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
   pivot_wider(names_from = scen_gas) %>% 
-  replace_na(list(Default = 0, noRus = 0)) %>% 
-  mutate(diff = noRus - Default,
+  replace_na(list(Default = 0, NoRus = 0)) %>% 
+  mutate(diff = NoRus - Default,
          input = str_remove(input, "traded "),
          input = str_replace(input, "pipeline gas", "pipeline"),
          input = str_replace(input, "natural gas", "Gas production"),
@@ -598,8 +598,8 @@ other_fuel_change <- PE_change %>%
   filter(fuel != "gas") %>% 
   separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
   pivot_wider(names_from = scen_gas) %>% 
-  replace_na(list(Default = 0, noRus = 0)) %>% 
-  mutate(diff = noRus - Default,
+  replace_na(list(Default = 0, NoRus = 0)) %>% 
+  mutate(diff = NoRus - Default,
          order = 2) %>% 
   rename(input = fuel) 
 
@@ -617,8 +617,8 @@ PE_total_diff <- PE_change %>%
   ungroup %>% 
   separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
   pivot_wider(names_from = scen_gas) %>% 
-  replace_na(list(Default = 0, noRus = 0)) %>% 
-  mutate(diff = -1 *(noRus - Default),
+  replace_na(list(Default = 0, NoRus = 0)) %>% 
+  mutate(diff = -1 *(NoRus - Default),
          order = 3,
          input = "PE decrease") 
 
@@ -890,9 +890,8 @@ cum_global_total_ret_LNG <- cum_global_total_ret%>%
 # Additions
 cum_global_total_add_diff <- as.data.frame(cum_global_total_add) %>%
   spread(scenario, cum_additions) %>%
-  mutate(diff_add_CP = CP_noRus - CP_Default,
-         diff_add_NDC = NDC_noRus - NDC_Default) %>%
-  select(sector, year, diff_add_CP, diff_add_NDC ) %>%
+  mutate(diff_add_CP = CP_NoRus - CP_Default) %>%
+  select(sector, year, diff_add_CP ) %>%
   gather(scenario, cum_additions_diff, -sector, -year) %>%
   mutate(scenario = if_else(grepl("CP", scenario), "CP", "NDC"))
 
@@ -901,9 +900,8 @@ cum_global_total_add_diff <- as.data.frame(cum_global_total_add) %>%
 # Additions
 cum_global_total_ret_diff <- as.data.frame(cum_global_total_ret) %>%
   spread(scenario, cum_retirements) %>%
-  mutate(diff_ret_CP = CP_noRus - CP_Default,
-         diff_ret_NDC = NDC_noRus - NDC_Default) %>%
-  select(sector, year, diff_ret_CP, diff_ret_NDC ) %>%
+  mutate(diff_ret_CP = CP_NoRus - CP_Default) %>%
+  select(sector, year, diff_ret_CP ) %>%
   gather(scenario, cum_retirements_diff, -sector, -year) %>%
   mutate(scenario = if_else(grepl("CP", scenario), "CP", "NDC"))
 
@@ -982,7 +980,6 @@ ggplot(ghg_by_gas %>% filter(region %in% selected_regions,
   ggtitle("")
 ggsave("figures/GHG_CP.tiff", last_plot(), "tiff", dpi = 200)
 
-
 # ------------------------------------------------------
 # ------------------------------------------------------
 # ------------------------------------------------------
@@ -1025,14 +1022,14 @@ dataset = gas.trade.lng %>%
   dplyr::mutate('pipeline' = 'LNG')
 dataset = bind_rows(gas.trade.pipeline,dataset) %>% dplyr::filter(region %in% c(selected_regions),
                                                                   year == selected_year,
-                                                                  scenario %in% c('CP_Default','CP_noRus'))
+                                                                  scenario %in% c('CP_Default','CP_NoRus'))
 # difference between scenarios
 dataset = pivot_wider(dataset, names_from = scenario, values_from = value) %>%
   # substitute NA for 0
-  replace_na(list(CP_noRus = 0)) %>%
+  replace_na(list(CP_NoRus = 0)) %>%
   replace_na(list(CP_Defaul = 0)) %>%
   # compute diff
-  dplyr::mutate('val_diff' = CP_noRus - CP_Default) %>%
+  dplyr::mutate('val_diff' = CP_NoRus - CP_Default) %>%
   # whole imported gas in Europe
   dplyr::group_by(sector, pipeline, year, Units) %>%
   dplyr::summarise('total_imp' = sum(val_diff))
@@ -1055,12 +1052,12 @@ gas.all.withpipelines = bind_rows(gas.all.withpipelines, gas.dom.prod, gas.trade
 
 dat_tmp = merge(gas.all.withpipelines %>% filter(region %in% selected_regions,
                                                  year == selected_year,
-                                                 scenario  %in% c('CP_Default','CP_noRus')) %>%
+                                                 scenario  %in% c('CP_Default','CP_NoRus')) %>%
                   dplyr::rename('production' = 'value',
                                 'units_production' = 'Units'),
                 gas.price %>% filter(region %in% selected_regions,
                                      year == selected_year,
-                                     scenario %in% c('CP_Default','CP_noRus')) %>%
+                                     scenario %in% c('CP_Default','CP_NoRus')) %>%
                   dplyr::rename('price' = 'value',
                                 'units_price' = 'Units') %>%
                   dplyr::select(-sector), by = c('scenario','region','year'))
@@ -1068,17 +1065,17 @@ dat_tmp = merge(gas.all.withpipelines %>% filter(region %in% selected_regions,
 dat_tmp = pivot_wider(dat_tmp, names_from = 'scenario', values_from = c('price','production')) %>%
   # substitute NA in production for 0
   dplyr::mutate('production_CP_Default' = tidyr::replace_na(production_CP_Default,0),
-                'production_CP_noRus' = tidyr::replace_na(production_CP_noRus,0)) %>% 
+                'production_CP_NoRus' = tidyr::replace_na(production_CP_NoRus,0)) %>% 
   # substitute NA in price for gas price in that region-year
   group_by(region,year) %>% 
-  mutate_at(vars(price_CP_Default,price_CP_noRus), 
+  mutate_at(vars(price_CP_Default,price_CP_NoRus), 
             ~replace_na(., 
                         mean(., na.rm = TRUE)))
 
 dat_tmp = dat_tmp %>%
   dplyr::group_by(region, year, sector, units_production, units_price) %>%
-  dplyr::summarise('price' = 100 * (price_CP_noRus - price_CP_Default) / price_CP_Default,
-                   'production' = production_CP_noRus - production_CP_Default)
+  dplyr::summarise('price' = 100 * (price_CP_NoRus - price_CP_Default) / price_CP_Default,
+                   'production' = production_CP_NoRus - production_CP_Default)
 
 # compute total production
 dat_barcharts_sum = dat_tmp %>%

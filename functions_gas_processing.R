@@ -1,10 +1,8 @@
 rename_scen<- function(df){
   
   df<- df %>%
-    mutate(scenario = if_else(scenario == "NewGasCalib_EUpre55CP", "CP_Default", scenario),
-           scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC", "NDC_Default", scenario),
-           scenario = if_else(scenario == "NewGasCalib_EUpre55CP_noRusGas", "CP_NoRus", scenario),
-           scenario = if_else(scenario == "NewGasCalib_EUpre55CP_NDC_noRusGas", "NDC_NoRus", scenario))
+    mutate(scenario = if_else(scenario == "CP_Default_vF", "CP_Default", scenario),
+           scenario = if_else(scenario == "CP_NoRus_nofe1_flextargets", "CP_NoRus", scenario))
   
   return(invisible(df))
   
