@@ -553,7 +553,7 @@ gas_change <- getQuery(prj, "inputs by sector") %>%
   filter(Units == "EJ",
          sector == "regional natural gas",
          input != "RUS-pipeline-limit",
-         year == final_year) %>% 
+         year == waterfall_year) %>% 
   rename_filter_regions(region_rewrite) %>% 
   rename_scen() %>% 
   group_by(Units, scenario, input, year) %>% 
@@ -567,7 +567,7 @@ gas_change <- getQuery(prj, "inputs by sector") %>%
          input = str_replace(input, "pipeline gas", "pipeline"),
          input = str_replace(input, "natural gas", "Gas production"),
          input = str_replace(input, "RUS pipeline", "RUS gas loss"),
-         order = if_else(input == "RUS gas loss", 4, 1),
+         order = if_else(input == "RUS gas loss", 5, 1),
          diff = if_else(input == "RUS gas loss", diff * -1, diff) )  
 
 order_1_sum <- gas_change %>% 
@@ -579,7 +579,7 @@ order_1_sum <- gas_change %>%
          input = "order_1_sum")
 
 PE_change <-  getQuery(prj,"primary energy consumption by region (avg fossil efficiency)") %>% 
-  filter(year == final_year,
+  filter(year == waterfall_year,
          fuel != "elect_td_en",
          fuel != "gas pipeline") %>% 
   mutate(fuel = stringr::str_remove(fuel, "^\\w{1} "),
@@ -600,32 +600,54 @@ other_fuel_change <- PE_change %>%
   pivot_wider(names_from = scen_gas) %>% 
   replace_na(list(Default = 0, NoRus = 0)) %>% 
   mutate(diff = NoRus - Default,
-         order = 2) %>% 
+         order = case_when(
+           fuel == "Low-carbon" ~ 2,
+           fuel == "Other fossil" ~ 3
+         )) %>% 
   rename(input = fuel) 
 
 order_2_sum <- bind_rows(order_1_sum, other_fuel_change) %>% 
   filter(order == 2) %>% 
-  group_by(Units, scen_policy, year) %>% 
+  group_by(Units, scen_policy, year, order) %>% 
   summarise(diff = sum(diff)) %>% 
   ungroup %>% 
-  mutate(order = 3,
-         input = "order_2_sum")
+  mutate( input = paste0("order_", order, "_sum"),
+          order = order + 1
+        )
 
-PE_total_diff <- PE_change %>% 
+order_3_sum <- bind_rows(order_1_sum, order_2_sum, other_fuel_change) %>% 
+  filter(order == 3) %>% 
+  group_by(Units, scen_policy, year, order) %>% 
+  summarise(diff = sum(diff)) %>% 
+  ungroup %>% 
+  mutate( input = paste0("order_", order, "_sum"),
+          order = order + 1
+  )
+
+PE_diff <- PE_change %>% 
   group_by(Units, scenario, year) %>% 
   summarise(value = sum(value)) %>% 
   ungroup %>% 
   separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
   pivot_wider(names_from = scen_gas) %>% 
   replace_na(list(Default = 0, NoRus = 0)) %>% 
-  mutate(diff = -1 *(NoRus - Default),
-         order = 3,
-         input = "PE decrease") 
+  mutate(diff = (NoRus - Default),
+         order = 4,
+         input = "PE increase") 
 
 full_waterfall_data <- bind_rows(gas_change, order_1_sum, 
-                                 other_fuel_change, order_2_sum,
-                                 PE_total_diff) %>% 
-  mutate(order = as.factor(order)) 
+                                 other_fuel_change, order_2_sum, order_3_sum,
+                                 PE_diff) %>% 
+  mutate(order = as.factor(order),
+         diff = if_else(input == "order_3_sum", diff[input == "RUS gas loss"], diff)) %>% 
+  arrange(order)
+
+if (filter(full_waterfall_data, input == "Other fossil")$diff < 0){
+  full_waterfall_data <- full_waterfall_data %>% 
+    mutate(diff = if_else(input == "Other fossil", -1*diff, diff),
+           diff = if_else(input == "order_2_sum", diff - diff[input == "Other fossil"], diff)
+           )
+}
 
 PE_total_Default <- filter(PE_change, grepl("Default", scenario)) %>% 
   group_by(Units, scenario, year) %>% 
@@ -1362,24 +1384,24 @@ ggsave(plot = fig, file = paste0('figures/map_',selected_year,'.png'), height = 
 # Full waterfall
 
 full_waterfall_data <- full_waterfall_data %>%
-  mutate(order = as.numeric(order)) %>%
-  mutate(order = if_else(input == "Other fossil", 3, order),
-         order = if_else(input == "PE decrease", 4, order),
-         order = if_else(input == "RUS gas loss", 5, order))
+  mutate(order = as.factor(order)) 
 
 wfall_colors <- c("Gas production" = "dodgerblue4", "EUR pipeline" = "dodgerblue3", 
                   "Afr_MidE pipeline" = "dodgerblue", "LNG" = "skyblue", 
                   "order_1_sum" = "white",
-                  "Other fossil" = "darkgoldenrod4", "Low-carbon" = "goldenrod", 
+                  "Low-carbon" = "goldenrod", 
                   "order_2_sum" = "white",
-                  "PE decrease" = "grey50",
+                  "Other fossil" = "darkgoldenrod4", 
+                  "order_3_sum" = "white",
+                  "PE increase" = "grey50",
                   "RUS gas loss" = "firebrick" )
 wfall_alpha <- c("Gas production" = 1, "EUR pipeline" = 1, "Afr_MidE pipeline" = 1, "LNG" = 1, 
                  "order_1_sum" = 0,
-                 "Other fossil" = 1, 
                  "Low-carbon" = 1, 
                  "order_2_sum" = 0,
-                 "PE decrease" = 1,
+                 "Other fossil" = 1, 
+                 "order_3_sum" = 0,
+                 "PE increase" = 1,
                  "RUS gas loss" = 1)
 plot_waterfall <- ggplot(full_waterfall_data %>%
                            filter(grepl("CP", scen_policy)), 
@@ -1391,11 +1413,12 @@ plot_waterfall <- ggplot(full_waterfall_data %>%
                     breaks = c("Gas production", "EUR pipeline", "Afr_MidE pipeline", "LNG")) +
   scale_alpha_manual(values = wfall_alpha, guide = "none") +
   theme_bw() +
-  labs(x = "", y = "EJ (NoRus-Default)") +
+  labs(x = "", y = "EJ (NoRus-Default)",
+       title = paste0(waterfall_year, " EU Russian Gas Replacement (Primary Energy)")) +
   scale_x_discrete(labels=c('Replacement Gas', 
                             'Low-carbon',
                             'Other Fossil',
-                            'PE Decrease',
+                            'PE Increase',
                             'Russian Gas Loss')) +
   theme(strip.text = element_text(size = 12),
         plot.title = element_text(size = 14),
@@ -1408,8 +1431,8 @@ plot_waterfall <- ggplot(full_waterfall_data %>%
 
 plot_waterfall
 
-#ggsave("figures/waterfall_PE.png", plot = plot_waterfall,
-#       width = 9.75, height = 7)
+ggsave("figures/waterfall_PE.png", plot = plot_waterfall,
+      width = 9.75, height = 7)
 
 plot_waterfall_pct <- ggplot(full_waterfall_data_pct, 
                              aes(x = order, y = diff, fill = factor(input, names(wfall_colors)),
