@@ -1485,7 +1485,7 @@ cum_global_total_add$sector <- factor(cum_global_total_add$sector,
                                                  "traded RUS pipeline gas"))
 
 
-ggplot(data = filter(cum_global_total_add, year <= 2030) %>% 
+ggplot(data = filter(cum_global_total_add, year <= 2030, year > 2015) %>% 
          mutate(year = as.factor(year),
                 scenario = gsub("_Default", "", scenario)) %>%
          filter(grepl("CP", scenario)),
@@ -1522,7 +1522,7 @@ cum_global_total_ret$sector <- factor(cum_global_total_ret$sector,
                                                  "traded RUS pipeline gas"))
 
 
-ggplot(data = filter(cum_global_total_ret, year <= 2030) %>% 
+ggplot(data = filter(cum_global_total_ret, year <= 2030, year > 2015) %>% 
          mutate(year = as.factor(year),
                 scenario = gsub("_Default", "", scenario)) %>%
          filter(grepl("CP", scenario)),
