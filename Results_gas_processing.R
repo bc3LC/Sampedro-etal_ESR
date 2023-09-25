@@ -907,6 +907,16 @@ cum_global_total_ret_diff <- as.data.frame(cum_global_total_ret) %>%
 
 #xlsx::write.xlsx2(cum_global_total_ret_diff, "cum_global_total_ret_diff.xlsx")
 
+# data for pie charts
+# Gas trade ---------
+gas.trade.pipeline.Rus <- getQuery(prj,"inputs by sector") %>%
+  rename_scen() %>% 
+  rename_filter_regions(region_rewrite) %>% 
+  filter(input == "traded RUS pipeline gas") %>% 
+  group_by(Units, scenario, sector, input, year, region) %>% 
+  summarise(value = sum(value)) %>% 
+  ungroup
+
 
 # =======================================================================
 # =======================================================================
@@ -1350,6 +1360,13 @@ ggsave(plot = fig, file = paste0('figures/map_',selected_year,'.png'), height = 
 
 # Plot ----
 # Full waterfall
+
+full_waterfall_data <- full_waterfall_data %>%
+  mutate(order = as.numeric(order)) %>%
+  mutate(order = if_else(input == "Other fossil", 3, order),
+         order = if_else(input == "PE decrease", 4, order),
+         order = if_else(input == "RUS gas loss", 5, order))
+
 wfall_colors <- c("Gas production" = "dodgerblue4", "EUR pipeline" = "dodgerblue3", 
                   "Afr_MidE pipeline" = "dodgerblue", "LNG" = "skyblue", 
                   "order_1_sum" = "white",
@@ -1359,7 +1376,8 @@ wfall_colors <- c("Gas production" = "dodgerblue4", "EUR pipeline" = "dodgerblue
                   "RUS gas loss" = "firebrick" )
 wfall_alpha <- c("Gas production" = 1, "EUR pipeline" = 1, "Afr_MidE pipeline" = 1, "LNG" = 1, 
                  "order_1_sum" = 0,
-                 "Other fossil" = 1, "Low-carbon" = 1, 
+                 "Other fossil" = 1, 
+                 "Low-carbon" = 1, 
                  "order_2_sum" = 0,
                  "PE decrease" = 1,
                  "RUS gas loss" = 1)
@@ -1370,15 +1388,13 @@ plot_waterfall <- ggplot(full_waterfall_data %>%
   geom_bar(stat = "identity", width = 0.8, position = position_stack(reverse = TRUE)) +
   scale_fill_manual(values = wfall_colors,  
                     guide = guide_legend(reverse = TRUE, title="RUS Gas Replacement"),
-                    breaks = c("Gas production", "EUR pipeline", "Afr_MidE pipeline", "LNG", 
-                               "Other fossil", "Low-carbon")) +
+                    breaks = c("Gas production", "EUR pipeline", "Afr_MidE pipeline", "LNG")) +
   scale_alpha_manual(values = wfall_alpha, guide = "none") +
-  facet_wrap(~ scen_policy , scales = "free", ncol = 1, strip.position = "left") +
   theme_bw() +
-  labs(x = "", y = "EJ (NoRus-Default)",
-       title = "2030 EU Russian Gas Replacement (Primary Energy)") +
+  labs(x = "", y = "EJ (NoRus-Default)") +
   scale_x_discrete(labels=c('Replacement Gas', 
-                            'Other Energy Sources',
+                            'Low-carbon',
+                            'Other Fossil',
                             'PE Decrease',
                             'Russian Gas Loss')) +
   theme(strip.text = element_text(size = 12),
@@ -1515,6 +1531,94 @@ ggsave(paste0("figures/","cum_global_total_ret_facet_export.tiff", sep = ""),las
 # =======================================================================
 # ================================Suppelementary Information=======================================
 # =======================================================================
+
+# PIE CHART:
+# Russian Gas Import
+myPalette <- brewer.pal(5, "Set2") 
+colors_regions = c("EU_SW" = "#cc3333",
+                   "EU_SE" = "#b3de69",
+                   "EU_NW" = "#41b6c4",
+                   "EU_Cent" = "#73af48",
+                   "EU_NE" = "#fd8d3c")
+
+text_size <- 3.5
+axis_text_size <- 8.5
+margin_size <- 0
+
+plot_data_2020 <- gas.trade.pipeline.Rus %>% filter(year %in% c(2020), scenario == "CP_Default") %>% 
+  mutate(csum = rev(cumsum(rev(value))), 
+         pos = value/2 + lead(csum, 1),
+         pos = if_else(is.na(pos), value/2, pos))
+
+pie_chart_2020 <- ggplot(plot_data_2020, aes(x = "", y = value, fill = forcats::fct_inorder(region))) +
+  geom_col(width = 1, color = 1) +
+  geom_text(aes(label = round(value, 2)),
+            position = position_stack(vjust = 0.5),
+            size = text_size) +
+  coord_polar(theta = "y") +
+  guides(fill = guide_legend(title = "Group")) +
+  scale_y_continuous(breaks = plot_data_2020$pos, labels = plot_data_2020$region) +
+  scale_fill_manual(values = colors_regions) +
+  theme(axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        axis.text = element_text(size = axis_text_size, face = "bold"), 
+        plot.title = element_blank(),
+        legend.position = "none", # Removes the legend
+        panel.background = element_rect(fill = "white"),
+        plot.margin = unit(c(margin_size,0,margin_size,0),"pt"))
+# ggsave("figures/pie_chart_RusImports_2020.png", plot = pie_chart_2020, width = 5, height = 4)
+
+plot_data_2025 <- gas.trade.pipeline.Rus %>% filter(year %in% c(2025), scenario == "CP_Default") %>% 
+  mutate(csum = rev(cumsum(rev(value))), 
+         pos = value/2 + lead(csum, 1),
+         pos = if_else(is.na(pos), value/2, pos))
+
+pie_chart_2025 <- ggplot(plot_data_2025, aes(x = "", y = value, fill = forcats::fct_inorder(region))) +
+  geom_col(width = 1, color = 1) +
+  geom_text(aes(label = round(value, 2)),
+            position = position_stack(vjust = 0.5),
+            size = text_size) +
+  coord_polar(theta = "y") +
+  guides(fill = guide_legend(title = "Group")) +
+  scale_y_continuous(breaks = plot_data_2025$pos, labels = plot_data_2025$region) +
+  scale_fill_manual(values = colors_regions) +
+  theme(axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        axis.text = element_text(size = axis_text_size, face = "bold"), 
+        plot.title = element_blank(),
+        legend.position = "none", # Removes the legend
+        panel.background = element_rect(fill = "white"),
+        plot.margin = unit(c(margin_size,0,margin_size,0),"pt"))
+
+# ggsave("figures/pie_chart_RusImports_2025.png", plot = pie_chart_2025, width = 5, height = 4)
+
+plot_row <- cowplot::plot_grid(pie_chart_2020, pie_chart_2025, labels = c('2020', '2025'), label_size = 12)
+
+# now add the title
+title <- ggdraw() + 
+  draw_label(
+    "Russian Gas Pipeline Exports to the EU",
+    fontface = 'bold',
+    x = 0,
+    hjust = 0
+  ) +
+  theme(
+    # add margin on the left of the drawing canvas,
+    # so title is aligned with left edge of first plot
+    plot.margin = margin(0, 0, 0, 15),
+    plot.background = element_rect(fill="white", color = NA)
+  )
+
+pie_charts <- plot_grid(
+  title, plot_row,
+  ncol = 1,
+  # rel_heights values control vertical title margins
+  rel_heights = c(0.1, 1)
+)
+
+save_plot("figures/pie_charts_RusExports.png", plot = pie_charts, base_height = 6)
+
+
 
 # Socioeconomics
 
