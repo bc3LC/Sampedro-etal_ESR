@@ -16,7 +16,7 @@ library(scatterpie)
 library(ggnewscale)
 
 # Extract queries from db using rgcam/load project file ----
-DAT_NAME <- "paperGas_fin4_newQueries.dat"
+DAT_NAME <- "paperGas_fin5_newQueries.dat"
 
 
 if(file.exists(DAT_NAME)){
@@ -34,7 +34,7 @@ QUERY_LIST <- listQueries(prj)
 
 #-----------------------
 # Read previous project for non re-mapped gas outputs:
-prj_noRemap <- rgcam::loadProject("paperGas_fin4.dat")
+prj_noRemap <- rgcam::loadProject("paperGas_fin5.dat")
 
 gas.trade.data <- getQuery(prj_noRemap,"primary energy consumption by region (avg fossil efficiency)")
 
