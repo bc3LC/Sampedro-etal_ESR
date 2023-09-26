@@ -1618,8 +1618,8 @@ pie_chart_2025 <- ggplot(plot_data_2025, aes(x = "", y = value, fill = forcats::
 plot_row <- cowplot::plot_grid(pie_chart_2020, pie_chart_2025, labels = c('2020', '2025'), label_size = 12)
 
 # now add the title
-title <- ggdraw() + 
-  draw_label(
+title <- cowplot::ggdraw() + 
+  cowplot::draw_label(
     "Russian Gas Pipeline Exports to the EU",
     fontface = 'bold',
     x = 0,
@@ -1632,14 +1632,14 @@ title <- ggdraw() +
     plot.background = element_rect(fill="white", color = NA)
   )
 
-pie_charts <- plot_grid(
+pie_charts <- cowplot::plot_grid(
   title, plot_row,
   ncol = 1,
   # rel_heights values control vertical title margins
   rel_heights = c(0.1, 1)
 )
 
-save_plot("figures/pie_charts_RusExports.png", plot = pie_charts, base_height = 6)
+cowplot::save_plot("figures/pie_charts_RusExports.png", plot = pie_charts, base_height = 6)
 
 
 
@@ -1753,7 +1753,7 @@ ind.en.diff.plot <- diff_plot(ind_en_diff_grouped,
 ind.en.diff.plot
 
 ggsave("figures/SI/ind_en_diff.png", 
-       plot = ind.out.diff.plot, 
+       plot = ind.en.diff.plot, 
        height = 6, width = 9)
 
 # Primary Energy Final -----
