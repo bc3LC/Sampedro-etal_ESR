@@ -967,20 +967,21 @@ gas.trade.pipeline.Rus <- getQuery(prj,"inputs by sector") %>%
 # Figure 1: CP_Default =======================================================================
 
 # Total primary energy (TPE)
-pr.en_colors <- c("biomass" = "forestgreen", "coal" = "grey20",  "geothermal" = "darkgoldenrod4",
-                  "hydro" = "blue", "natural gas" = "cadetblue1",  "nuclear" = "chocolate1",
-                  "oil" = "firebrick2", "solar" = "gold",  "wind" = "hotpink1")
+pr.en_colors <- c("Biomass" = "forestgreen", "Coal" = "grey20",  "Geothermal" = "darkgoldenrod4",
+                  "Hydro" = "blue", "Natural gas" = "cadetblue1",  "Nuclear" = "chocolate1",
+                  "Oil" = "firebrick2", "Solar" = "gold",  "Wind" = "hotpink1")
 
 ggplot(pr.energy %>% filter(region %in% selected_regions,
                             grepl("CP_Default", scenario),
                             year >= 2015,
                             year <= 2030) %>%
          mutate(scenario = gsub("_Default", "", scenario),
-                year = as.factor(year)), 
-       aes(x = year, y = value, color = factor(fuel, levels = c("coal", "oil", "natural gas", "biomass",
-                                                                "geothermal", "hydro", "nuclear", "solar", "wind")), 
-           fill = factor(fuel, levels = c("coal", "oil", "natural gas", "biomass",
-                                          "geothermal", "hydro", "nuclear", "solar", "wind")))) + 
+                year = as.factor(year),
+                fuel = stringr::str_to_sentence(fuel)), 
+       aes(x = year, y = value, color = factor(fuel, levels = c("Coal", "Oil", "Natural gas", "Biomass",
+                                                                "Geothermal", "Hydro", "Nuclear", "Solar", "Wind")), 
+           fill = factor(fuel, levels = c("Coal", "Oil", "Natural gas", "Biomass",
+                                          "Geothermal", "Hydro", "Nuclear", "Solar", "Wind")))) + 
   geom_bar(stat = "identity", position = position_stack(reverse = TRUE)) +
   # guides(fill = guide_legend(reverse = TRUE), color = guide_legend(reverse = TRUE)) +
   facet_grid(~ region) + 
