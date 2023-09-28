@@ -179,7 +179,7 @@ elec_gen_grouped <- elec_gen %>%
 elec_gen_diff_grouped <- elec_gen %>% 
   df_process_diff() %>% 
   mutate(fuel = if_else(subsector %in% c("coal", "refined liquids"),
-                        "Other fossil", "Low-carbon"),
+                        "Liquids and coal", "Low-carbon"),
          fuel = if_else(subsector == "gas",
                         "Gas", fuel)) %>% 
   group_by(Units, scen_policy, region, fuel, year) %>% 
@@ -488,7 +488,7 @@ building_output <- getQuery(prj, "outputs by tech") %>%
 bld_out_diff_grouped <- building_output %>% 
   df_process_diff() %>% 
   mutate(fuel = case_when(
-    subsector %in% c("coal", "refined liquids") ~ "Other fossil",
+    subsector %in% c("coal", "refined liquids") ~ "Liquids and coal",
     subsector %in% c("biomass") ~ "Bioenergy",
     subsector %in% c("district heat") ~ "District heat",
     subsector == "gas" ~ "Gas",
@@ -524,7 +524,7 @@ ind_en <- getQuery(prj, "inputs by tech") %>%
 ind_en_diff_grouped <- ind_en %>% 
   df_process_diff() %>% 
   mutate(fuel = case_when(
-    input %in% c("coal", "refined liquids") ~ "Other fossil",
+    input %in% c("coal", "refined liquids") ~ "Liquids and coal",
     input == "biomass" ~ "Bioenergy",
     input == "district heat" ~ "District heat",
     input == "gas" ~ "Gas",
@@ -1688,7 +1688,7 @@ gdp.plot
 ggsave("figures/SI/gdp.tiff", gdp.plot, "tiff", dpi = 200)
 
 # Electricity Final------
-elec_colors_grouped <- c("Gas" = "dodgerblue3", "Other fossil" = wfall_colors[["Other fossil"]], 
+elec_colors_grouped <- c("Gas" = "dodgerblue3", "Liquids and coal" = wfall_colors[["Other fossil"]], 
                          "Low-carbon" = wfall_colors[["Low-carbon"]])
 
 
@@ -1715,7 +1715,7 @@ ggsave("figures/SI/elec_diff.png",
        height = 6, width = 9)
 
 # Building Final------
-bld_grpd_colors <- c("Gas" = "dodgerblue3","Other fossil" = wfall_colors[["Other fossil"]],
+bld_grpd_colors <- c("Gas" = "dodgerblue3","Liquids and coal" = wfall_colors[["Other fossil"]],
                      "Electricity" = wfall_colors[["Low-carbon"]],  "Bioenergy" = "olivedrab",
                      "District heat" = "black")
 
@@ -1741,7 +1741,7 @@ ggsave("figures/SI/bld_out_diff.png",
        height = 6, width = 9)
 
 # Industry Final------
-ind_grpd_colors <- c("Gas" = "dodgerblue3","Other fossil" = wfall_colors[["Other fossil"]],
+ind_grpd_colors <- c("Gas" = "dodgerblue3","Liquids and coal" = wfall_colors[["Other fossil"]],
                      "Elec/H2" = wfall_colors[["Low-carbon"]],  "Bioenergy" = "olivedrab",
                      "District heat" = "black")
 
