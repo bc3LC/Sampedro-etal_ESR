@@ -16,14 +16,14 @@ library(scatterpie)
 library(ggnewscale)
 
 # Extract queries from db using rgcam/load project file ----
-DAT_NAME <- "paperGas_fin5_newQueries.dat"
+DAT_NAME <- "paperGas_fin6_newQueries.dat"
 
 
 if(file.exists(DAT_NAME)){
   prj <- rgcam::loadProject(DAT_NAME)
 } else{
-  conn <- localDBConn('./gas_crisis_analysis/db/', 
-                      'database_basexdb_iamCompact_paperGas_fin4/')
+  conn <- localDBConn("../gcam-core/output/", 
+                      "database_basexdb_iamCompact_paperGas_fin5")
   for(scen in listScenariosInDB(conn)$name){
     prj <- addScenario(conn, DAT_NAME, scen, "queries/queries_gas_new.xml")
   }
@@ -34,7 +34,22 @@ QUERY_LIST <- listQueries(prj)
 
 #-----------------------
 # Read previous project for non re-mapped gas outputs:
-prj_noRemap <- rgcam::loadProject("paperGas_fin5.dat")
+# prj_noRemap <- rgcam::loadProject("paperGas_fin5.dat")
+# 
+
+DAT_NAME_noRemap <- "paperGas_fin6.dat"
+
+
+if(file.exists(DAT_NAME_noRemap)){
+  prj_noRemap <- rgcam::loadProject(DAT_NAME_noRemap)
+} else{
+  conn <- localDBConn("../gcam-core/output/", 
+                      "database_basexdb_iamCompact_paperGas_fin5")
+  for(scen in listScenariosInDB(conn)$name){
+    prj_noRemap <- addScenario(conn, DAT_NAME_noRemap, scen, "queries/queries_gas.xml")
+  }
+}
+
 
 gas.trade.data <- getQuery(prj_noRemap,"primary energy consumption by region (avg fossil efficiency)")
 
