@@ -997,7 +997,7 @@ ggplot(pr.energy %>% filter(region %in% selected_regions,
   scale_color_manual(values = pr.en_colors) +
   scale_fill_manual(values = pr.en_colors) +
   ggtitle("")
-ggsave("figures/TPE_CP.tiff", last_plot(), "tiff", dpi = 200)
+ggsave("figures/TPE_CP.png", last_plot(), width = 9.75, height = 7)
 
 
 # GHG
@@ -1029,7 +1029,7 @@ ggplot(ghg_by_gas %>% filter(region %in% selected_regions,
   scale_color_manual(values = ghg_colors_new) +
   scale_fill_manual(values = ghg_colors_new) +
   ggtitle("")
-ggsave("figures/GHG_CP.tiff", last_plot(), "tiff", dpi = 200)
+ggsave("figures/GHG_CP.png", last_plot(), width = 9.75, height = 7)
 
 # ------------------------------------------------------
 # ------------------------------------------------------
@@ -1820,7 +1820,7 @@ ggsave("figures/SI/ghg_noLUC_diff.png",
        plot = ghg.noLUC.diff.plot, 
        height = 6, width = 9)
 
-# Waterfall Regions CP ONLY ------
+# Waterfall Regions ------
 wfall.region.plot <- diff_plot_CP(full_waterfall_data_region %>%  
                                     filter(scen_policy == "CP", 
                                            !grepl("order_", input),
