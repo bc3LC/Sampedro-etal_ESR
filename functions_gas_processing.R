@@ -72,14 +72,15 @@ diff_plot_CP <- function(df, colors, fill, title, ylab,  sum_line_lab = "",
                          errorbar = T, pct = F, x_aes = "region", y_aes = "diff", 
                          roundoff = 100, barsize = 0.8, sym_scales = T,
                          plot_years = figure_years){
+  df <- filter(df, year %in% plot_years,
+               region %in% selected_regions)
+  
   sum_bars <- df %>% 
-    filter(year %in% plot_years) %>% 
     group_by(scen_policy, region, year) %>% 
     summarise(sum_diff = sum(get(y_aes))) %>% 
     ungroup
   
   plot_data <- df %>% 
-    filter(year %in% plot_years) %>% 
     left_join_error_no_match(sum_bars, by = join_by(scen_policy, region, year))
   
   ax_lims <- plot_data %>% 
@@ -143,7 +144,7 @@ df_process_diff <- function(df){
   df_diff <- df %>% 
     separate(scenario, into = c("scen_policy", "scen_gas"), sep = "_") %>% 
     pivot_wider(names_from = scen_gas) %>% 
-    mutate(diff = noRus - Default)  %>% 
+    mutate(diff = NoRus - Default)  %>% 
     group_by(scen_policy, region, year) %>% 
     mutate(total_Default = sum(Default)) %>% 
     ungroup %>% 
