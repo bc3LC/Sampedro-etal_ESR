@@ -399,7 +399,7 @@ GCAM_region_pipeline_bloc <- readr::read_csv("data/GCAM_region_pipeline_bloc.csv
 gas.trade.data.intl <- getQuery(prj,  "regional natural gas by tech and vintage" ) %>% 
   separate(col = technology, into = c("technology", "vintage"), sep = ",year=") %>% 
   mutate(technology = if_else(technology == "imported RUS pipeline gas", "imported pipeline gas from Russia", 
-                              if_else(technology == "domestic natural gas", "domestic natural gas", "other traded gas"))) %>% 
+                              if_else(technology == "domestic natural gas", "domestic natural gas", "other imported gas"))) %>% 
   left_join(GCAM_region_pipeline_bloc, by = c("region" = "origin.region")) %>% 
   group_by(scenario, region = pipeline.market, technology, year) %>% 
   summarise(value = sum(value)) %>% 
@@ -1597,9 +1597,26 @@ ggplot(data = filter(gas.trade.data.intl, year == 2025, region != "Europe"),
   theme(legend.position = "bottom", text = element_text(size = 12)) +
   scale_fill_manual(values = c("imported pipeline gas from Russia" = "#00931d", 
                                "domestic natural gas" = "#CC79A7",
-                               "other traded gas" = "deepskyblue1"))
+                               "other imported gas" = "deepskyblue1"))
 
-ggsave(paste0("figures/","all_region_RusGasChange_noEurope.tiff"),last_plot(), "tiff", dpi = 200)
+ggsave(paste0("figures/","all_region_RusGasChange_noEurope_2025.tiff"),last_plot(), "tiff", dpi = 200)
+
+ggplot(data = filter(gas.trade.data.intl, year == 2030, region != "Europe"),
+       aes(x = region, y = diff, fill = technology))+
+  geom_bar(position = position_stack(reverse = TRUE), stat = "identity")+
+  stat_identity(yintercept=0, geom='hline', inherit.aes=TRUE, size = 1)+
+  labs(x = "", y = "EJ (NoRus-Default)") +
+  theme_bw() +
+  theme(axis.text = element_text(hjust = .5, vjust = 0.5, size = 12),
+        strip.text = element_text(size = 12),
+        title = element_text(size = 14),
+        legend.title = element_blank()) +
+  theme(legend.position = "bottom", text = element_text(size = 12)) +
+  scale_fill_manual(values = c("imported pipeline gas from Russia" = "#00931d", 
+                               "domestic natural gas" = "#CC79A7",
+                               "other imported gas" = "deepskyblue1"))
+
+ggsave(paste0("figures/","all_region_RusGasChange_noEurope_2030.tiff"),last_plot(), "tiff", dpi = 200)
 
 # ------------------------------------------------------
 # ------------------------------------------------------
